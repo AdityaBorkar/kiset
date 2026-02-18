@@ -1,5 +1,2 @@
-import { start } from "./sdk/start";
-
-if (require.main === module) {
-	start();
-}
+export { start } from "./sdk/start";
+export { stop } from "./sdk/stop";

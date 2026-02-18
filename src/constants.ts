@@ -1,4 +1,4 @@
-import type { PlatformId } from "../utils";
+import type { PlatformId } from "./utils";
 
 export const DNSMASQ_INSTALL_COMMANDS = {
 	darwin: "brew install dnsmasq",

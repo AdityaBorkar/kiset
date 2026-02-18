@@ -13,9 +13,10 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
-    "start": "bun src/index.ts"
+    "dev": "bun src/cli.ts"
   },
   "dependencies": {
-    "@biomejs/biome": "^2.4.2"
+    "@biomejs/biome": "^2.4.2",
+    "commander": "^14.0.3"
   }
 }

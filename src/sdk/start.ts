@@ -5,7 +5,7 @@ import {
 	DNSMASQ_CONFIG,
 	DNSMASQ_CONFIG_PATHS,
 	DNSMASQ_INSTALL_COMMANDS,
-} from "../constants/install-commands";
+} from "../constants";
 import { $, file, write } from "bun";
 
 export async function start() {
