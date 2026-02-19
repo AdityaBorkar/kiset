@@ -1,76 +1,187 @@
-import { isInstalled, getPlatformId, install } from "../utils";
+import { $, write } from "bun"
+
+import ora from "ora"
+
 import {
-	CADDY_CONFIG_PATHS,
 	CADDY_INSTALL_COMMANDS,
-	DNSMASQ_CONFIG,
-	DNSMASQ_CONFIG_PATHS,
+	CADDY_PORT,
 	DNSMASQ_INSTALL_COMMANDS,
-} from "../constants";
-import { $, file, write } from "bun";
+	DNSMASQ_PORT
+} from "../constants"
+import {
+	createLockFile,
+	getLocalportConfigDir,
+	getLocalportLogsDir,
+	getLocalportStateDir,
+	getPlatformId,
+	install,
+	isInstalled,
+	waitForService
+} from "../utils"
 
-export async function start() {
-	// Get platform id
-	const platformId = await getPlatformId();
+export async function start(
+	detached: boolean = true,
+	verbose: boolean = false
+) {
+	const platformId = await getPlatformId()
+	const configDir = getLocalportConfigDir()
+	const stateDir = getLocalportStateDir()
+	const logsDir = getLocalportLogsDir()
+	const lockFile = createLockFile(`${stateDir}/localport.lock`)
 
-	// Install dnsmasq
-	console.log("Checking for dnsmasq installation...");
-	if (await isInstalled("dnsmasq")) {
-		console.log("dnsmasq is already installed.");
-	} else {
-		const command = DNSMASQ_INSTALL_COMMANDS[platformId];
-		await install({ label: "dnsmasq", command });
-	}
+	await lockFile.withLock(async () => {
+		if (verbose) {
+			const $dnsmasq_install = ora("Installing dnsmasq...").start()
+			if (await isInstalled("dnsmasq")) {
+				$dnsmasq_install.succeed("dnsmasq is already installed.")
+			} else {
+				const command = DNSMASQ_INSTALL_COMMANDS[platformId]
+				await install({ command, label: "dnsmasq", verbose })
+				$dnsmasq_install.succeed("dnsmasq installed successfully.")
+			}
 
-	// Configure dnsmasq
-	const dnsmasq_conf_path = DNSMASQ_CONFIG_PATHS[platformId];
-	const dnsmasq_conf = file(dnsmasq_conf_path);
-	if (await dnsmasq_conf.exists()) {
-		console.log(`Configuration file already exists at ${dnsmasq_conf_path}`);
-		// TODO: Verify if required properties are present
-	} else {
-		console.log(`Creating dnsmasq configuration file at ${dnsmasq_conf_path}`);
-		await write(dnsmasq_conf_path, DNSMASQ_CONFIG);
-		console.log("Configuration file created successfully.");
-	}
+			const $caddy_install = ora("Installing caddy...").start()
+			if (await isInstalled("caddy")) {
+				$caddy_install.succeed("caddy is already installed.")
+			} else {
+				const command = CADDY_INSTALL_COMMANDS[platformId]
+				await install({ command, label: "caddy", verbose })
+				$caddy_install.succeed("caddy installed successfully.")
+			}
+		} else {
+			if (!(await isInstalled("dnsmasq"))) {
+				const command = DNSMASQ_INSTALL_COMMANDS[platformId]
+				await install({ command, label: "dnsmasq", verbose })
+			}
+			if (!(await isInstalled("caddy"))) {
+				const command = CADDY_INSTALL_COMMANDS[platformId]
+				await install({ command, label: "caddy", verbose })
+			}
+		}
 
-	// Restart dnsmasq
-	await $`sudo systemctl restart dnsmasq`;
-	await $`nameserver 127.0.0.1`;
+		await $`mkdir -p ${configDir} ${stateDir} ${logsDir}`
 
-	// Install caddy
-	console.log("Checking for caddy installation...");
-	if (await isInstalled("caddy")) {
-		console.log("caddy is already installed.");
-	} else {
-		const command = CADDY_INSTALL_COMMANDS[platformId];
-		await install({ label: "caddy", command });
-	}
+		await $`mkdir -p ${configDir} ${stateDir} ${logsDir}`
 
-	// Configure caddy
-	const caddy_conf_path = CADDY_CONFIG_PATHS[platformId];
-	const caddy_conf = file(caddy_conf_path);
-	if (await caddy_conf.exists()) {
-		console.log(`Configuration file already exists at ${caddy_conf_path}`);
-		// TODO: Verify if required properties are present
-	} else {
-		console.log(`Creating caddy configuration file at ${caddy_conf_path}`);
-		// await write(caddyConfigPath, CADDY_CONFIG);
-		// api.local {
-		//     reverse_proxy 127.0.0.1:3000
-		// }
-		// admin.local {
-		//     reverse_proxy 127.0.0.1:4000
-		// }
-		console.log("Configuration file created successfully.");
-	}
+		if (verbose) {
+			const $dnsmasq_start = ora("Configuring dnsmasq...").start()
+			const dnsmasq_config = `
+address=/local/127.0.0.1
+port=${DNSMASQ_PORT}
+listen-address=127.0.0.1
+cache-size=10000
+server=1.1.1.1
+server=8.8.8.8
+keep-in-foreground
+`.trim()
+			await write(`${configDir}/dnsmasq.conf`, dnsmasq_config)
 
-	// Restart caddy
-	await $`sudo systemctl restart caddy`;
+			$dnsmasq_start.text = "Starting dnsmasq..."
+			const dnsmasq_log = `${logsDir}/dnsmasq.log`
+			const dnsmasq_proc = Bun.spawn(
+				["dnsmasq", "-C", `${configDir}/dnsmasq.conf`],
+				{
+					detached,
+					stderr: Bun.file(dnsmasq_log),
+					stdout: Bun.file(dnsmasq_log)
+				}
+			)
+			await write(`${stateDir}/dnsmasq.pid`, `${dnsmasq_proc.pid}`)
 
-	// TODO: Automatic HTTPS
-	// await $`caddy trust`;
-	// cp /root/.local/share/caddy/pki/authorities/local/root.crt /mnt/c/Users/<your-user>/Downloads
-	// Double click → Install → Trusted Root Certification Authorities
+			$dnsmasq_start.text = "Waiting for dnsmasq to be ready..."
+			try {
+				await waitForService(dnsmasq_proc.pid, DNSMASQ_PORT)
+				$dnsmasq_start.succeed(
+					`dnsmasq started on http://127.0.0.1:${DNSMASQ_PORT} (PID: ${dnsmasq_proc.pid})`
+				)
+			} catch (error) {
+				$dnsmasq_start.fail(`dnsmasq failed to start: ${error}`)
+				throw error
+			}
 
-	// 127.0.0.1 db.local
+			const $caddy_start = ora("Configuring caddy...").start()
+			const caddy_config = `
+{
+	admin 127.0.0.1:2519
+}
+
+http://localhost:${CADDY_PORT} {
+	respond "Localport is working! Use custom .local domains by setting DNS to 127.0.0.1:${DNSMASQ_PORT}"
+}
+`.trim()
+			await write(`${configDir}/Caddyfile`, caddy_config)
+
+			$caddy_start.text = "Starting caddy..."
+			const caddy_log = `${logsDir}/caddy.log`
+			const caddy_proc = Bun.spawn(
+				["caddy", "run", "--config", `${configDir}/Caddyfile`],
+				{
+					detached,
+					stderr: Bun.file(caddy_log),
+					stdout: Bun.file(caddy_log)
+				}
+			)
+			await write(`${stateDir}/caddy.pid`, `${caddy_proc.pid}`)
+
+			$caddy_start.text = "Waiting for caddy to be ready..."
+			try {
+				await waitForService(caddy_proc.pid, CADDY_PORT)
+				$caddy_start.succeed(
+					`caddy started on http://localhost:${CADDY_PORT} (PID: ${caddy_proc.pid})`
+				)
+			} catch (error) {
+				$caddy_start.fail(`caddy failed to start: ${error}`)
+				throw error
+			}
+			console.log(`🎉 Localport is running!`)
+		} else {
+			const dnsmasq_config = `
+address=/local/127.0.0.1
+port=${DNSMASQ_PORT}
+listen-address=127.0.0.1
+cache-size=10000
+server=1.1.1.1
+server=8.8.8.8
+keep-in-foreground
+`.trim()
+			await write(`${configDir}/dnsmasq.conf`, dnsmasq_config)
+
+			const dnsmasq_log = `${logsDir}/dnsmasq.log`
+			const dnsmasq_proc = Bun.spawn(
+				["dnsmasq", "-C", `${configDir}/dnsmasq.conf`],
+				{
+					detached,
+					stderr: Bun.file(dnsmasq_log),
+					stdout: Bun.file(dnsmasq_log)
+				}
+			)
+			await write(`${stateDir}/dnsmasq.pid`, `${dnsmasq_proc.pid}`)
+
+			await waitForService(dnsmasq_proc.pid, DNSMASQ_PORT)
+
+			const caddy_config = `
+{
+	admin 127.0.0.1:2519
+}
+
+http://localhost:${CADDY_PORT} {
+	respond "Localport is working! Use custom .local domains by setting DNS to 127.0.0.1:${DNSMASQ_PORT}"
+}
+`.trim()
+			await write(`${configDir}/Caddyfile`, caddy_config)
+
+			const caddy_log = `${logsDir}/caddy.log`
+			const caddy_proc = Bun.spawn(
+				["caddy", "run", "--config", `${configDir}/Caddyfile`],
+				{
+					detached,
+					stderr: Bun.file(caddy_log),
+					stdout: Bun.file(caddy_log)
+				}
+			)
+			await write(`${stateDir}/caddy.pid`, `${caddy_proc.pid}`)
+
+			await waitForService(caddy_proc.pid, CADDY_PORT)
+		}
+	})
 }

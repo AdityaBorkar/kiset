@@ -1,0 +1,48 @@
+{
+	"[css][javascript][javascriptreact][json][jsonc][typescript][typescriptreact]": {
+		"editor.defaultFormatter": "biomejs.biome",
+		"editor.formatOnSave": true
+	},
+	"[markdown]": {
+		"editor.defaultFormatter": "DavidAnson.vscode-markdownlint",
+		"editor.formatOnSave": true
+	},
+	"[rust]": {
+		"editor.defaultFormatter": "rust-lang.rust-analyzer",
+		"editor.formatOnSave": true
+	},
+	"editor.codeActionsOnSave": {
+		"source.fixAll.biome": "explicit",
+		"source.organizeImports.biome": "explicit"
+	},
+	"editor.defaultFormatter": "biomejs.biome",
+	"editor.quickSuggestions": {
+		"strings": "on"
+	},
+	"files.associations": {
+		"*.css": "tailwindcss"
+	},
+	"files.exclude": {
+		"**/.git": true,
+		"**/.nitro": true,
+		"**/.output": true,
+		"**/.tanstack": true,
+		"**/.vinxi": true,
+		"**/.wrangler": true,
+		"**/node_modules": true
+	},
+	"files.readonlyInclude": {
+		"**/routeTree.gen.ts": true
+	},
+	"files.watcherExclude": {
+		"**/routeTree.gen.ts": true
+	},
+	"javascript.preferences.importModuleSpecifier": "non-relative",
+	"search.exclude": {
+		"**/routeTree.gen.ts": true
+	},
+	"typescript.experimental.useTsgo": false,
+	"typescript.preferences.autoImportSpecifierExcludeRegexes": ["^(node:)?os$"],
+	"typescript.preferences.importModuleSpecifier": "non-relative",
+	"typescript.tsdk": "node_modules/typescript/lib"
+}

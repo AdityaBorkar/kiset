@@ -1,22 +1,51 @@
 {
-  "name": "localport",
-  "module": "src/index.ts",
-  "bin": {
-    "localport": "src/index.ts"
-  },
-  "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "^1.3.9"
-  },
-  "peerDependencies": {
-    "typescript": "^5.9.3"
-  },
-  "scripts": {
-    "dev": "bun src/cli.ts"
-  },
-  "dependencies": {
-    "@biomejs/biome": "^2.4.2",
-    "commander": "^14.0.3"
-  }
+	"bin": {
+		"localport": "src/cli.ts"
+	},
+	"dependencies": {
+		"commander": "^14.0.3",
+		"ora": "^9.3.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.2",
+		"@semantic-release/changelog": "^6.0.3",
+		"@semantic-release/commit-analyzer": "^13.0.1",
+		"@semantic-release/git": "^10.0.1",
+		"@semantic-release/github": "^11.0.1",
+		"@semantic-release/npm": "^12.0.1",
+		"@semantic-release/release-notes-generator": "^14.0.1",
+		"@types/bun": "^1.3.9",
+		"husky": "^9.1.7",
+		"semantic-release": "^24.2.1"
+	},
+	"engines": {
+		"bun": ">=1.0.0",
+		"node": ">=22.0.0"
+	},
+	"exports": {
+		".": {
+			"import": "./src/index.ts",
+			"types": "./src/index.ts"
+		}
+	},
+	"module": "src/index.ts",
+	"name": "localport",
+	"peerDependencies": {
+		"typescript": "^5.9.3"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true,
+		"registry": "https://registry.npmjs.org/"
+	},
+	"scripts": {
+		"dev": "bun src/cli.ts",
+		"lint": "biome check --fix",
+		"prepare": "husky",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"sideEffects": false,
+	"type": "module",
+	"version": "0.0.1"
 }
