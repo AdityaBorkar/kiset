@@ -18,7 +18,7 @@ CLI tool for managing local DNS and HTTP services with custom `.local` domains. 
 
 - **Bun**: Runtime environment (>= 1.0.0)
 - **Node.js**: Peer dependency (>= 22.0.0) for type definitions
-- **System Requirements**: 
+- **System Requirements**:
   - Root/sudo access for installing dnsmasq and Caddy
   - Network access for fetching dependencies
 
@@ -67,6 +67,7 @@ localport start --no-detached
 ```
 
 **Default Ports:**
+
 - DNS (dnsmasq): `127.0.0.1:5353`
 - HTTP (Caddy): `127.0.0.1:8443`
 
@@ -87,10 +88,23 @@ localport status
 ```
 
 Output example:
+
 ```
 dnsmasq  ✓ running (PID: 12345, Port: 5353) - healthy
 caddy    ✓ running (PID: 12346, Port: 8443) - healthy
 ```
+
+## Exit Codes
+
+The CLI uses the following exit codes:
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Error |
+| 2 | Usage (invalid command or arguments) |
+
+When an error occurs, the CLI will exit with code `1` and print an error message to stderr.
 
 ## How It Works
 
@@ -197,12 +211,14 @@ await stop(true)
 ### Services Won't Start
 
 1. Check if ports are already in use:
+
    ```bash
    lsof -i :5353  # dnsmasq
    lsof -i :8443  # caddy
    ```
 
 2. View logs:
+
    ```bash
    tail -f ~/.local/state/localport/logs/dnsmasq.log
    tail -f ~/.local/state/localport/logs/caddy.log

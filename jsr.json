@@ -2,9 +2,16 @@
 	"exclude": ["**/*.test.ts", "**/*.spec.ts", "test/**/*", "tests/**/*"],
 	"exports": "./src/index.ts",
 	"license": "MIT",
-	"name": "@localport/localport",
+	"name": "localport",
 	"publish": {
-		"include": ["src/**/*", "README.md", "LICENSE.md", "package.json"]
+		"include": [
+			"src/**/*",
+			"README.md",
+			"SECURITY.md",
+			"CHANGELOG.md",
+			"LICENSE.md",
+			"package.json"
+		]
 	},
 	"version": "0.0.1"
 }

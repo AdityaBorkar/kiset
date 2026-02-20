@@ -4,6 +4,12 @@ import ora from "ora"
 
 import { createLockFile, getLocalportStateDir } from "../utils"
 
+/**
+ * Stops dnsmasq and Caddy services.
+ *
+ * @param verbose - Show detailed stop messages (default: false)
+ * @returns Promise that resolves when services are stopped
+ */
 export async function stop(verbose: boolean = false) {
 	const spinner = verbose ? ora("Stopping localport...").start() : null
 

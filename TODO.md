@@ -1,5 +1,13 @@
 # TODO
 
+1. Make it work
+2. .github checks
+3. .husky checks
+4. scripts/ checks
+5. Root Dir File Checks
+
+---
+
 1. Write a SECURITY.md & CONTRIBUTING.md & CHANGELOG.md-Versioning & README.md file for the project.
 2. Biome Config, Tsup, Publish to NPM and JSR
 3. GitHub Actions for CI/CD. Always Audit (bun audit) before release.

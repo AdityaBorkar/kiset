@@ -8,6 +8,12 @@ import {
 	type ServiceStatus
 } from "../utils"
 
+/**
+ * Checks the status of dnsmasq and Caddy services.
+ *
+ * @param verbose - Show detailed status output (default: false)
+ * @returns Promise resolving to array of service statuses
+ */
 export async function status(verbose: boolean = false) {
 	const stateDir = getLocalportStateDir()
 
@@ -51,7 +57,6 @@ export async function status(verbose: boolean = false) {
 
 				const statusResult: ServiceStatus = {
 					dnsWorking,
-					error,
 					healthy,
 					httpWorking,
 					name: service.name,
@@ -59,6 +64,11 @@ export async function status(verbose: boolean = false) {
 					port: service.port,
 					running: true
 				}
+
+				if (error !== undefined) {
+					statusResult.error = error
+				}
+
 				results.push(statusResult)
 				if (verbose) {
 					const healthIndicator = healthy ? "✓" : "✗"
@@ -89,7 +99,5 @@ export async function status(verbose: boolean = false) {
 		}
 	}
 
-	if (!verbose) {
-		return results
-	}
+	return results
 }

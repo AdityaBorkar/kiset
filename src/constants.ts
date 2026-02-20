@@ -41,6 +41,7 @@ export const DNSMASQ_CONFIG_PATHS = {
 export const CADDY_INSTALL_COMMANDS = {
 	arch: "sudo pacman -S --noconfirm caddy",
 	centos: "sudo yum install -y caddy",
+	darwin: "brew install caddy",
 	debian: "sudo apt-get install -y caddy",
 	fedora: "sudo dnf install -y caddy",
 	manjaro: "sudo pacman -S --noconfirm caddy",

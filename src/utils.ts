@@ -1,12 +1,14 @@
-import net from "node:net"
+import * as net from "node:net"
 import { homedir } from "node:os"
 import { $, file } from "bun"
 
 export function getXdgConfigDir(): string {
-	return process.env["XDG_CONFIG_HOME"] || `${homedir()}/.config`
+	// biome-ignore lint/complexity/useLiteralKeys: Typescript doesn't support literal keys in process.env
+	return process.env["XDG_CONFIG_HOME"] ?? `${homedir()}/.config`
 }
 
 export function getXdgStateDir(): string {
+	// biome-ignore lint/complexity/useLiteralKeys: Typescript doesn't support literal keys in process.env
 	return process.env["XDG_STATE_HOME"] || `${homedir()}/.local/state`
 }
 
@@ -159,6 +161,29 @@ async function checkPort(port: number, host: string): Promise<boolean> {
 
 		socket.connect(port, host)
 	})
+}
+
+export async function retryWithBackoff<T>(
+	fn: () => Promise<T>,
+	maxRetries: number = 5,
+	baseDelay: number = 100,
+	maxDelay: number = 5000
+): Promise<T> {
+	let lastError: unknown
+
+	for (let attempt = 0; attempt < maxRetries; attempt++) {
+		try {
+			return await fn()
+		} catch (error) {
+			lastError = error
+			if (attempt < maxRetries - 1) {
+				const delay = Math.min(baseDelay * 2 ** attempt, maxDelay)
+				await new Promise((resolve) => setTimeout(resolve, delay))
+			}
+		}
+	}
+
+	throw lastError
 }
 
 export async function waitForPort(

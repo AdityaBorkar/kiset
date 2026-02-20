@@ -19,6 +19,26 @@ import {
 	waitForService
 } from "../utils"
 
+async function cleanupPartialState(pids: number[], stateDir: string) {
+	for (const pid of pids) {
+		try {
+			await $`kill ${pid} 2>/dev/null || true`
+		} catch {
+			// Ignore errors when killing processes
+		}
+	}
+	await $`rm -f ${stateDir}/dnsmasq.pid ${stateDir}/caddy.pid 2>/dev/null || true`
+}
+
+/**
+ * Starts dnsmasq and Caddy services for local development.
+ *
+ * @param detached - Run services in detached mode (default: true)
+ * @param verbose - Show detailed progress messages (default: false)
+ * @returns Promise that resolves when both services are started
+ * @throws {ServiceStartError} If either service fails to start
+ * @throws {LockAcquisitionError} If lock file cannot be acquired
+ */
 export async function start(
 	detached: boolean = true,
 	verbose: boolean = false
@@ -28,6 +48,7 @@ export async function start(
 	const stateDir = getLocalportStateDir()
 	const logsDir = getLocalportLogsDir()
 	const lockFile = createLockFile(`${stateDir}/localport.lock`)
+	const startedPids: number[] = []
 
 	await lockFile.withLock(async () => {
 		if (verbose) {
@@ -61,8 +82,6 @@ export async function start(
 
 		await $`mkdir -p ${configDir} ${stateDir} ${logsDir}`
 
-		await $`mkdir -p ${configDir} ${stateDir} ${logsDir}`
-
 		if (verbose) {
 			const $dnsmasq_start = ora("Configuring dnsmasq...").start()
 			const dnsmasq_config = `
@@ -91,11 +110,13 @@ keep-in-foreground
 			$dnsmasq_start.text = "Waiting for dnsmasq to be ready..."
 			try {
 				await waitForService(dnsmasq_proc.pid, DNSMASQ_PORT)
+				startedPids.push(dnsmasq_proc.pid)
 				$dnsmasq_start.succeed(
 					`dnsmasq started on http://127.0.0.1:${DNSMASQ_PORT} (PID: ${dnsmasq_proc.pid})`
 				)
 			} catch (error) {
 				$dnsmasq_start.fail(`dnsmasq failed to start: ${error}`)
+				await cleanupPartialState(startedPids, stateDir)
 				throw error
 			}
 
@@ -126,11 +147,13 @@ http://localhost:${CADDY_PORT} {
 			$caddy_start.text = "Waiting for caddy to be ready..."
 			try {
 				await waitForService(caddy_proc.pid, CADDY_PORT)
+				startedPids.push(caddy_proc.pid)
 				$caddy_start.succeed(
 					`caddy started on http://localhost:${CADDY_PORT} (PID: ${caddy_proc.pid})`
 				)
 			} catch (error) {
 				$caddy_start.fail(`caddy failed to start: ${error}`)
+				await cleanupPartialState(startedPids, stateDir)
 				throw error
 			}
 			console.log(`🎉 Localport is running!`)
@@ -157,7 +180,13 @@ keep-in-foreground
 			)
 			await write(`${stateDir}/dnsmasq.pid`, `${dnsmasq_proc.pid}`)
 
-			await waitForService(dnsmasq_proc.pid, DNSMASQ_PORT)
+			try {
+				await waitForService(dnsmasq_proc.pid, DNSMASQ_PORT)
+				startedPids.push(dnsmasq_proc.pid)
+			} catch (error) {
+				await cleanupPartialState(startedPids, stateDir)
+				throw error
+			}
 
 			const caddy_config = `
 {
@@ -181,7 +210,13 @@ http://localhost:${CADDY_PORT} {
 			)
 			await write(`${stateDir}/caddy.pid`, `${caddy_proc.pid}`)
 
-			await waitForService(caddy_proc.pid, CADDY_PORT)
+			try {
+				await waitForService(caddy_proc.pid, CADDY_PORT)
+				startedPids.push(caddy_proc.pid)
+			} catch (error) {
+				await cleanupPartialState(startedPids, stateDir)
+				throw error
+			}
 		}
 	})
 }
