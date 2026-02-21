@@ -9,7 +9,7 @@ export async function logProcessExit(
 			0: "Exited normally",
 			130: "Interrupted by user (Ctrl+C)",
 			137: "Killed",
-			143: "Stopped via localport stop"
+			143: "Stopped via kiset stop"
 		}
 		const reason =
 			reasons[exitCode as keyof typeof reasons] ||

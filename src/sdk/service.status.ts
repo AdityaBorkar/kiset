@@ -2,13 +2,16 @@ import { file } from "bun"
 
 import ora from "ora"
 
-import {
-	CADDY_PORT,
-	is_process_running,
-	LOCKFILE,
-	PATHS,
-	type ServiceStatus
-} from "#/utils"
+import { isRunningProcess, LOCKFILE, PATHS } from "#/utils"
+
+interface ServiceStatus {
+	error?: string | undefined
+	healthy?: boolean
+	name: string
+	pid?: string
+	port?: number
+	running: boolean
+}
 
 export async function status(verbose: boolean = false) {
 	// Initialization
@@ -23,9 +26,9 @@ export async function status(verbose: boolean = false) {
 		if (spinner) spinner.text = `Checking 'caddy' status...`
 		const state = await file(PATHS.CADDY_STATE).json()
 		const pid = state.pid ?? 0
-		const port = CADDY_PORT // TODO: GET FROM CONFIG
+		const port = 443 // TODO: GET FROM CONFIG. If http=80
 		const name = "caddy"
-		const running = await is_process_running(pid)
+		const running = await isRunningProcess(pid)
 		if (running) {
 			const { healthy, error } = await checkHttpHealth(port)
 			spinner?.succeed(`'caddy' is running on port ${port} (pid: ${pid})`)

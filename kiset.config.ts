@@ -44,3 +44,24 @@ export default defineConfig({
 // 		process.env[secret.secretKey] = secret.secretValue
 // 	}
 // }
+
+// localhost:${port} {
+// // TODO: Show a overall dashboard using React+Bun
+// 	# root * /usr/share/caddy
+// 	respond "kiset is working! Use custom .local domains by setting DNS to ${url}"
+// 	# reverse_proxy localhost:8080
+// }
+
+// uma.localhost:${port} {
+// 	# root * /usr/share/caddy
+// 	respond "kiset is working! Use custom .local domains by setting DNS to ${url}"
+// 	# reverse_proxy localhost:8080
+// }
+
+// maitri-global.localhost:${port} {
+// 	reverse_proxy localhost:3000
+// }
+
+// maitri-global.local:${port} {
+// 	reverse_proxy localhost:3000
+// }

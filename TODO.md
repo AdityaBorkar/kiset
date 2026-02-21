@@ -36,3 +36,7 @@ proxy.log Proxy daemon log output
 1. Write a Personal Blog Post about the project
 2. Spread the word on Twitter
 3. AI Based Checklist for the project launch
+
+##
+
+// TODO:caddy,config,constants,

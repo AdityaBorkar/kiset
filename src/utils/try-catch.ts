@@ -4,10 +4,8 @@ export async function tryCatch<T>(
 	try {
 		const result = await promise
 		return { result }
-	} catch (error) {
-		if (error instanceof Error) {
-			return { error: error.message }
-		}
-		return { error: String(error) }
+	} catch (err) {
+		const error = err instanceof Error ? err.message : String(err)
+		return { error }
 	}
 }

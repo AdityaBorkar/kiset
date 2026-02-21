@@ -2,7 +2,7 @@ import { $, sleep } from "bun"
 
 import { is_port_available } from "#/utils/port"
 
-export async function is_process_running(pid: number): Promise<boolean> {
+export async function isRunningProcess(pid: number): Promise<boolean> {
 	try {
 		await $`kill -0 ${pid} 2>/dev/null`
 		return true
@@ -11,11 +11,11 @@ export async function is_process_running(pid: number): Promise<boolean> {
 	}
 }
 
-export async function kill_process(pid: string | number) {
+export async function killProcess(pid: string | number) {
 	return await $`kill ${pid} 2>/dev/null || true`
 }
 
-export async function wait_for_process(
+export async function waitForProcess(
 	pid: number,
 	port: number,
 	hostname: string,
@@ -24,7 +24,7 @@ export async function wait_for_process(
 	const startTime = Date.now()
 
 	while (Date.now() - startTime < timeout) {
-		const running = await is_process_running(pid)
+		const running = await isRunningProcess(pid)
 		if (!running) {
 			throw new Error(`Process ${pid} exited unexpectedly`)
 		}

@@ -10,5 +10,5 @@ export { stop } from "./sdk/service.stop"
 export { trust } from "./sdk/trust"
 export {
 	defineConfig,
-	type KisetConfigSchema
+	type ProjectConfigSchemaType as KisetConfigSchema
 } from "./utils/config"

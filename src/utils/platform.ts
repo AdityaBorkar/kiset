@@ -36,22 +36,3 @@ export function isInstalled(packageName: string) {
 		.then(() => true)
 		.catch(() => false)
 }
-
-export async function install({
-	label,
-	command,
-	verbose
-}: {
-	label: string
-	command: string
-	verbose?: boolean
-}) {
-	if (verbose) console.log(`Installing ${label} with command: ${command}`)
-	$`${command}`
-		.then(() => {
-			if (verbose) console.log(`${label} installed successfully!`)
-		})
-		.catch((error: unknown) => {
-			if (verbose) console.error(`Failed to install ${label}: ${error}`)
-		})
-}

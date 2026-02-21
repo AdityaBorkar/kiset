@@ -3,18 +3,16 @@ import { $, write } from "bun"
 import ora from "ora"
 
 import {
-	CADDY_PORT,
+	cleanup,
 	getPlatform,
-	HOSTNAME,
 	isInstalled,
 	LOCKFILE,
-	PATHS
+	logProcessExit,
+	PATHS,
+	tryCatch,
+	waitForProcess
 } from "#/utils"
-import { cleanup, HTTPS } from "#/utils/config"
-import { CADDY_INSTALL_COMMANDS, getCaddyConfig } from "#/utils/constants"
-import { logProcessExit } from "#/utils/errors"
-import { wait_for_process } from "#/utils/process"
-import { tryCatch } from "#/utils/try-catch"
+import { CADDY_INSTALL_COMMANDS } from "#/utils/constants"
 
 export async function start(
 	detached: boolean = true,
@@ -22,7 +20,6 @@ export async function start(
 ) {
 	// Initialization
 	const platform = await getPlatform()
-	const startedPids: number[] = []
 
 	// Create necessary directories
 	await $`mkdir -p ${PATHS.CONFIG_DIR} ${PATHS.STATE_DIR} ${PATHS.LOGS_DIR}`
@@ -43,13 +40,11 @@ export async function start(
 
 		// Configure Service
 		if (spinner) spinner.text = `Configuring 'caddy'...`
-		const config = getCaddyConfig({
-			// TODO: WRITE CONFIG
-			hostname: HOSTNAME,
-			https: HTTPS,
-			port: CADDY_PORT
-		})
-		await write(PATHS.CADDY_CONFIG, config)
+		const ADMIN_API_PORT = 5000 // TODO: GET FROM CONFIG
+		await write(
+			PATHS.CADDY_CONFIG,
+			`{\n\tadmin 127.0.0.1:${ADMIN_API_PORT}\n}\n`
+		)
 
 		// Start Service
 		if (spinner) spinner.text = `Starting 'caddy'...`
@@ -65,21 +60,22 @@ export async function start(
 		)
 
 		// Save state and log exit
+		const CADDY_PORT = 5000 // TODO: GET FROM CONFIG
+		const HOSTNAME = "localhost" // TODO: GET FROM CONFIG
 		const state = { pid: proc.pid, port: CADDY_PORT }
 		await write(PATHS.CADDY_STATE, JSON.stringify(state, null, 2))
-		logProcessExit(proc, "caddy", logFilePath)
+		logProcessExit(proc, "caddy", logFilePath) // TODO: ANALYZE
 
 		// Check if service is ready
 		if (spinner) spinner.text = `Waiting for 'caddy' to be ready...`
 		const { error } = await tryCatch(
-			wait_for_process(proc.pid, CADDY_PORT, HOSTNAME)
+			waitForProcess(proc.pid, CADDY_PORT, HOSTNAME) // TODO: ANALYZE
 		)
 		if (error) {
 			spinner?.fail(`'caddy' failed to start: ${error}`)
 			await cleanup([proc.pid])
 			throw error
 		}
-		startedPids.push(proc.pid)
 		spinner?.succeed(
 			`'caddy' started on ${HOSTNAME}:${CADDY_PORT} (PID: ${proc.pid})`
 		)

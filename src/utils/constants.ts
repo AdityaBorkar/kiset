@@ -1,35 +1,5 @@
+import type { GlobalConfigSchemaType } from "#/utils/config"
 import type { Platform } from "."
-
-// export const DNSMASQ_INSTALL_COMMANDS = {
-// 	arch: "sudo pacman -S --noconfirm dnsmasq",
-// 	centos: "sudo yum install -y dnsmasq",
-// 	darwin: "brew install dnsmasq",
-// 	debian: "sudo apt-get install -y dnsmasq",
-// 	fedora: "sudo dnf install -y dnsmasq",
-// 	manjaro: "sudo pacman -S --noconfirm dnsmasq",
-// 	rhel: "sudo yum install -y dnsmasq",
-// 	ubuntu: "sudo apt-get install -y dnsmasq"
-// } as Record<Platform, string>
-
-// export const DNSMASQ_CONFIG = ({
-// 	hostname,
-// 	port
-// }: {
-// 	hostname: string
-// 	port: number | string
-// }) => `
-// address=/local/${hostname}
-// listen-address=${hostname}
-// port=${port}
-// cache-size=10000
-// bogus-priv
-// no-resolv
-// log-dhcp
-// log-queries
-// domain-needed
-// server=1.1.1.1
-// server=8.8.8.8
-// keep-in-foreground`
 
 export const CADDY_INSTALL_COMMANDS = {
 	arch: "sudo pacman -S --noconfirm caddy",
@@ -42,39 +12,18 @@ export const CADDY_INSTALL_COMMANDS = {
 	ubuntu: "sudo apt-get install -y caddy"
 } as Record<Platform, string>
 
-export const getCaddyConfig = ({
-	hostname,
-	port,
-	https
-}: {
-	https: boolean
-	hostname: string
-	port: number | string
-}) => {
-	const url = `${https ? "https" : "http"}://${hostname}:${port}`
-	return `{
-	admin 127.0.0.1:2019
-}
-
-localhost:${port} {
-// TODO: Show a overall dashboard using React+Bun
-	# root * /usr/share/caddy
-	respond "kiset is working! Use custom .local domains by setting DNS to ${url}"
-	# reverse_proxy localhost:8080
-}
-
-uma.localhost:${port} {
-	# root * /usr/share/caddy
-	respond "kiset is working! Use custom .local domains by setting DNS to ${url}"
-	# reverse_proxy localhost:8080
-}
-
-maitri-global.localhost:${port} {
-	reverse_proxy localhost:3000
-}
-
-maitri-global.local:${port} {
-	reverse_proxy localhost:3000
-}
-`
+export const DNSMASQ_PORT = 53 // TODO: Move to config
+export const DEFAULT_GLOBAL_CONFIG: GlobalConfigSchemaType = {
+	server: {
+		hostname: "localhost",
+		https: true,
+		port: 443,
+		port_assignment: {
+			deny: [],
+			range: {
+				end: 4999,
+				start: 4000
+			}
+		}
+	}
 }

@@ -2,7 +2,7 @@ import { $, file } from "bun"
 
 import ora from "ora"
 
-import { kill_process, LOCKFILE, PATHS } from "#/utils"
+import { killProcess, LOCKFILE, PATHS } from "#/utils"
 
 export async function stop(verbose: boolean = false) {
 	// Initialization
@@ -17,7 +17,7 @@ export async function stop(verbose: boolean = false) {
 		const state = await file(PATHS.CADDY_STATE).json()
 		const pid = state.pid ?? 0
 		if (pid) {
-			await kill_process(pid)
+			await killProcess(pid)
 			await $`rm -f ${PATHS.CADDY_STATE}`
 			spinner?.succeed(`'caddy' stopped.`)
 		} else {
