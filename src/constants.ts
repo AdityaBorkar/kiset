@@ -1,4 +1,11 @@
-import type { PlatformId } from "./utils"
+import { getLocalportStateDir, type PlatformId } from "./utils"
+
+const stateDir = getLocalportStateDir()
+
+export const PATHS = {
+	CADDY_PID: `${stateDir}/caddy.pid`,
+	DNSMASQ_PID: `${stateDir}/dnsmasq.pid`
+}
 
 export const DNSMASQ_PORT = 5353
 export const CADDY_PORT = 8443

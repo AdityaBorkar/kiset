@@ -18,6 +18,7 @@
 					}
 				},
 				"useSortedAttributes": "on",
+				"useSortedInterfaceMembers": "on",
 				"useSortedKeys": "on",
 				"useSortedProperties": "on"
 			}
@@ -53,6 +54,9 @@
 		}
 	},
 	"linter": {
+		"domains": {
+			"types": "all"
+		},
 		"enabled": true,
 		"rules": {
 			"recommended": true

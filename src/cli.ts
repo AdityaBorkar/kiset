@@ -1,12 +1,18 @@
+#!/usr/bin/env bun
+
 import { $ } from "bun"
 
 import { Command } from "commander"
 
-import { type LogLevel, logger, setLogLevel } from "./logger"
+import { assign } from "./sdk/assign"
+import { list } from "./sdk/list"
+import { rm as removePort } from "./sdk/rm"
+import { executeCommand } from "./sdk/run-command"
 import { start } from "./sdk/start"
 import { status } from "./sdk/status"
 import { stop } from "./sdk/stop"
 import { getLocalportStateDir } from "./utils"
+import { type LogLevel, logger, setLogLevel } from "./utils/logger"
 
 const EXIT_CODES = {
 	ERROR: 1,
@@ -100,20 +106,16 @@ program
 	.description("Start the service")
 	.option("--no-detached", "Run in foreground mode")
 	.action(async (options) => {
-		try {
-			if (jsonOutput) {
-				await start(options.detached, false)
-				console.log(
-					JSON.stringify({
-						exitCode: EXIT_CODES.SUCCESS,
-						status: "started"
-					})
-				)
-			} else {
-				await start(options.detached, true)
-			}
-		} catch (error) {
-			await handleError(error)
+		if (jsonOutput) {
+			await start(options.detached, false)
+			console.log(
+				JSON.stringify({
+					exitCode: EXIT_CODES.SUCCESS,
+					status: "started"
+				})
+			)
+		} else {
+			await start(options.detached, true)
 		}
 	})
 
@@ -121,20 +123,16 @@ program
 	.command("stop")
 	.description("Stop the service")
 	.action(async () => {
-		try {
-			if (jsonOutput) {
-				await stop(false)
-				console.log(
-					JSON.stringify({
-						exitCode: EXIT_CODES.SUCCESS,
-						status: "stopped"
-					})
-				)
-			} else {
-				await stop(true)
-			}
-		} catch (error) {
-			await handleError(error)
+		if (jsonOutput) {
+			await stop(false)
+			console.log(
+				JSON.stringify({
+					exitCode: EXIT_CODES.SUCCESS,
+					status: "stopped"
+				})
+			)
+		} else {
+			await stop(true)
 		}
 	})
 
@@ -142,27 +140,155 @@ program
 	.command("status")
 	.description("Show service status")
 	.action(async () => {
-		try {
-			const results = await status(false)
-			if (jsonOutput) {
-				console.log(JSON.stringify(results))
+		const results = await status(false)
+		if (jsonOutput) {
+			console.log(JSON.stringify(results))
+		} else {
+			for (const service of results) {
+				if (service.running) {
+					const healthIndicator = service.healthy ? "✓" : "✗"
+					const healthText = service.healthy
+						? "healthy"
+						: `unhealthy (${service.error})`
+					logger.info(
+						`${service.name.padEnd(8)} ${healthIndicator} running (PID: ${service.pid}, Port: ${service.port}) - ${healthText}`
+					)
+				} else {
+					logger.info(`${service.name.padEnd(8)} stopped`)
+				}
+			}
+		}
+	})
+
+program
+	.command("exec")
+	.argument("<command>", "Command to execute")
+	.argument("[args...]", "Arguments to pass to the command")
+	.description(
+		"Execute a command after validating config and checking service status"
+	)
+	.action(async (command, args) => {
+		const exitCode = await executeCommand(command, args)
+		process.exit(exitCode)
+	})
+
+program
+	.command("run")
+	.description("Execute a command with localport services running")
+	.allowUnknownOption()
+	.allowExcessArguments()
+	.action(async () => {
+		const runIndex = process.argv.indexOf("run")
+		const dashIndex = process.argv.indexOf("--", runIndex)
+
+		if (dashIndex === -1 || dashIndex >= process.argv.length - 1) {
+			logger.error("Usage: localport run -- <command> [args...]")
+			process.exit(EXIT_CODES.USAGE)
+		}
+
+		const commandArgs = process.argv.slice(dashIndex + 1)
+		const command = commandArgs[0]
+		const args = commandArgs.slice(1)
+
+		if (!command) {
+			logger.error("Usage: localport run -- <command> [args...]")
+			process.exit(EXIT_CODES.USAGE)
+		}
+
+		const options = program.opts()
+		if (options["log-level"] !== undefined) {
+			setLogLevel(options["log-level"] as LogLevel)
+		}
+
+		const exitCode = await executeCommand(command, args)
+		process.exit(exitCode)
+	})
+
+program
+	.command("assign")
+	.argument("<program>", "Program name to assign ports to")
+	.argument("<ports...>", "Port numbers to assign")
+	.description("Assign port(s) to a program")
+	.action(async (program, ports) => {
+		const portNumbers = ports.map(Number)
+		const result = await assign(program, portNumbers)
+		if (jsonOutput) {
+			console.log(
+				JSON.stringify({
+					exitCode: EXIT_CODES.SUCCESS,
+					ports: result,
+					program
+				})
+			)
+		} else {
+			logger.info(`Assigned ports [${result.join(", ")}] to '${program}'`)
+		}
+	})
+
+program
+	.command("list")
+	.argument("[program]", "Program name to list ports for (optional)")
+	.description("List port assignments")
+	.action(async (program) => {
+		const result = await list(program)
+		if (jsonOutput) {
+			console.log(JSON.stringify(result))
+		} else {
+			if (program) {
+				const ports = result as number[]
+				logger.info(`'${program}' ports: [${ports.join(", ")}]`)
 			} else {
-				for (const service of results) {
-					if (service.running) {
-						const healthIndicator = service.healthy ? "✓" : "✗"
-						const healthText = service.healthy
-							? "healthy"
-							: `unhealthy (${service.error})`
-						logger.info(
-							`${service.name.padEnd(8)} ${healthIndicator} running (PID: ${service.pid}, Port: ${service.port}) - ${healthText}`
-						)
-					} else {
-						logger.info(`${service.name.padEnd(8)} stopped`)
+				const assignments = result as Record<string, number[]>
+				const entries = Object.entries(assignments)
+				if (entries.length === 0) {
+					logger.info("No port assignments found")
+				} else {
+					for (const [prog, ports] of entries) {
+						logger.info(`${prog}: [${ports.join(", ")}]`)
 					}
 				}
 			}
-		} catch (error) {
-			await handleError(error)
+		}
+	})
+
+program
+	.command("rm")
+	.argument("<program>", "Program name to remove ports from")
+	.argument(
+		"[ports...]",
+		"Port numbers to remove (optional - removes all if not specified)"
+	)
+	.description("Remove port assignment(s)")
+	.action(async (program, ports) => {
+		if (ports.length === 0) {
+			await removePort(program)
+			if (jsonOutput) {
+				console.log(
+					JSON.stringify({
+						exitCode: EXIT_CODES.SUCCESS,
+						program,
+						removed: true
+					})
+				)
+			} else {
+				logger.info(`Removed all port assignments for '${program}'`)
+			}
+		} else {
+			const portNumbers = ports.map(Number)
+			const result = await removePort(program, portNumbers)
+			if (jsonOutput) {
+				console.log(
+					JSON.stringify({
+						exitCode: EXIT_CODES.SUCCESS,
+						ports: result as number[],
+						program
+					})
+				)
+			} else {
+				logger.info(
+					`Removed ports [${(result as number[]).join(", ")}] from '${program}'`
+				)
+			}
 		}
 	})
 

@@ -1,8 +1,8 @@
 import { $, file } from "bun"
 
 import { CADDY_PORT, DNSMASQ_PORT } from "../constants"
-import { logger } from "../logger"
 import { checkDnsHealth, checkHttpHealth, getLocalportStateDir } from "../utils"
+import { logger } from "../utils/logger"
 
 export interface WatchdogConfig {
 	checkInterval?: number

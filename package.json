@@ -3,6 +3,7 @@
 		"localport": "src/cli.ts"
 	},
 	"dependencies": {
+		"arktype": "^2.1.29",
 		"commander": "^14.0.3",
 		"consola": "^3.4.2",
 		"ora": "^9.3.0"
@@ -30,15 +31,11 @@
 			"types": "./src/index.ts"
 		}
 	},
+	"files": ["README.md", "LICENSE.md", "CHANGELOG.md", "package.json"],
 	"module": "src/index.ts",
-	"name": "localport",
+	"name": "@aditya-borkar/localport",
 	"peerDependencies": {
 		"typescript": "^5.9.3"
-	},
-	"publishConfig": {
-		"access": "public",
-		"provenance": true,
-		"registry": "https://registry.npmjs.org/"
 	},
 	"scripts": {
 		"dev": "bun src/cli.ts",

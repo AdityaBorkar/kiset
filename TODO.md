@@ -1,10 +1,26 @@
 # TODO
 
+GET IT FULLY DONE AND DUSTED BY 10AM IST
+
 1. Make it work
 2. .github checks
 3. .husky checks
 4. scripts/ checks
 5. Root Dir File Checks
+
+sudo portless trust
+
+--foreground for `start`
+
+routes.json Maps hostnames to ports
+routes.lock Prevents concurrent writes
+proxy.pid PID of the running proxy
+proxy.port Port the proxy is listening on
+proxy.log Proxy daemon log output
+
+Random = 4000--4999 range
+
+<!-- TODO: Support Allow and Deny in config -->
 
 ---
 

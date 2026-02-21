@@ -2,6 +2,13 @@ import * as net from "node:net"
 import { homedir } from "node:os"
 import { $, file } from "bun"
 
+import {
+	DEFAULT_GLOBAL_CONFIG,
+	GlobalConfigSchema,
+	type GlobalConfigSchemaType
+} from "../config.ts"
+import { deepMerge } from "./merge.ts"
+
 export function getXdgConfigDir(): string {
 	// biome-ignore lint/complexity/useLiteralKeys: Typescript doesn't support literal keys in process.env
 	return process.env["XDG_CONFIG_HOME"] ?? `${homedir()}/.config`
@@ -22,6 +29,51 @@ export function getLocalportStateDir(): string {
 
 export function getLocalportLogsDir(): string {
 	return `${getLocalportStateDir()}/logs`
+}
+
+export function getLocalportPortsDir(): string {
+	return `${getLocalportConfigDir()}/ports`
+}
+
+export function getGlobalConfigPath(): string {
+	return `${getLocalportConfigDir()}/localport.json`
+}
+
+export async function loadGlobalConfig(): Promise<GlobalConfigSchemaType> {
+	const configPath = getGlobalConfigPath()
+	const configFile = file(configPath)
+
+	if (!(await configFile.exists())) {
+		return DEFAULT_GLOBAL_CONFIG
+	}
+
+	const content = await configFile.json()
+	const validated = GlobalConfigSchema(content)
+
+	if ("summary" in validated) {
+		throw new Error(`Invalid global config: ${validated.summary}`)
+	}
+
+	return deepMerge(
+		DEFAULT_GLOBAL_CONFIG,
+		validated as Partial<GlobalConfigSchemaType>
+	)
+}
+
+export async function saveGlobalConfig(
+	config: Partial<GlobalConfigSchemaType>
+): Promise<void> {
+	const configPath = getGlobalConfigPath()
+	const configDir = getLocalportConfigDir()
+
+	await $`mkdir -p ${configDir}`
+
+	const validated = GlobalConfigSchema(config)
+	if ("summary" in validated) {
+		throw new Error(`Invalid config: ${validated.summary}`)
+	}
+
+	await file(configPath).write(JSON.stringify(validated, null, 2))
 }
 
 export const SUPPORTED_PLATFORMS = [
@@ -81,14 +133,14 @@ export async function install({
 }
 
 export interface ServiceStatus {
+	dnsWorking?: boolean
+	error?: string
+	healthy?: boolean
+	httpWorking?: boolean
 	name: string
-	running: boolean
 	pid?: string
 	port?: number
-	healthy?: boolean
-	dnsWorking?: boolean
-	httpWorking?: boolean
-	error?: string
+	running: boolean
 }
 
 export async function checkDnsHealth(dnsPort: number): Promise<{

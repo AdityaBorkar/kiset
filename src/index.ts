@@ -12,6 +12,11 @@
  * await start(true, false) // Start in detached mode without verbose output
  * ```
  */
+
+export {
+	LocalportConfig,
+	type LocalportSchema
+} from "./config"
 export { start } from "./sdk/start"
 /**
  * Checks the status of dnsmasq and Caddy services.

@@ -30,6 +30,31 @@ async function cleanupPartialState(pids: number[], stateDir: string) {
 	await $`rm -f ${stateDir}/dnsmasq.pid ${stateDir}/caddy.pid 2>/dev/null || true`
 }
 
+async function logProcessExit(
+	subprocess: ReturnType<typeof Bun.spawn>,
+	serviceName: string,
+	logFile: string
+) {
+	try {
+		const exitCode = await subprocess.exited
+		let reason: string
+
+		if (exitCode === 143) {
+			reason = "Stopped via localport stop"
+		} else if (exitCode === 130) {
+			reason = "Interrupted by user (Ctrl+C)"
+		} else if (exitCode === 137) {
+			reason = "Killed"
+		} else if (exitCode === 0) {
+			reason = "Exited normally"
+		} else {
+			reason = `Exited with code ${exitCode}`
+		}
+
+		console.error(`${serviceName} ${reason}. See ${logFile} for details.`)
+	} catch {}
+}
+
 /**
  * Starts dnsmasq and Caddy services for local development.
  *
@@ -106,6 +131,7 @@ keep-in-foreground
 				}
 			)
 			await write(`${stateDir}/dnsmasq.pid`, `${dnsmasq_proc.pid}`)
+			logProcessExit(dnsmasq_proc, "dnsmasq", dnsmasq_log)
 
 			$dnsmasq_start.text = "Waiting for dnsmasq to be ready..."
 			try {
@@ -143,6 +169,7 @@ http://localhost:${CADDY_PORT} {
 				}
 			)
 			await write(`${stateDir}/caddy.pid`, `${caddy_proc.pid}`)
+			logProcessExit(caddy_proc, "caddy", caddy_log)
 
 			$caddy_start.text = "Waiting for caddy to be ready..."
 			try {
@@ -179,6 +206,7 @@ keep-in-foreground
 				}
 			)
 			await write(`${stateDir}/dnsmasq.pid`, `${dnsmasq_proc.pid}`)
+			logProcessExit(dnsmasq_proc, "dnsmasq", dnsmasq_log)
 
 			try {
 				await waitForService(dnsmasq_proc.pid, DNSMASQ_PORT)
@@ -209,6 +237,7 @@ http://localhost:${CADDY_PORT} {
 				}
 			)
 			await write(`${stateDir}/caddy.pid`, `${caddy_proc.pid}`)
+			logProcessExit(caddy_proc, "caddy", caddy_log)
 
 			try {
 				await waitForService(caddy_proc.pid, CADDY_PORT)
