@@ -32,22 +32,13 @@ async function tailWithPrefix(
 	await proc.exited
 }
 
-async function followSingleLog(path: string): Promise<void> {
-	const proc = Bun.spawn(["tail", "-f", path], {
-		stderr: "inherit",
-		stdout: "inherit"
-	})
-	await proc.exited
-}
-
-async function followMultipleLogs(
-	logPaths: Array<{ name: string; path: string }>
+async function followLogs(
+	paths: Array<{ name: string; path: string }>
 ): Promise<void> {
-	const procs = logPaths.map((log) =>
+	const decoder = new TextDecoder()
+	const procs = paths.map((log) =>
 		Bun.spawn(["tail", "-f", log.path], { stderr: "inherit", stdout: "pipe" })
 	)
-
-	const decoder = new TextDecoder()
 
 	try {
 		while (true) {
@@ -69,7 +60,7 @@ async function followMultipleLogs(
 				if (!item || item.result.done || !item.result.value) continue
 
 				const text = decoder.decode(item.result.value, { stream: true })
-				const prefix = `[${logPaths[i]?.name}]`
+				const prefix = `[${paths[i]?.name}]`
 				for (const line of text.split("\n")) {
 					if (line) console.log(`${prefix} ${line}`)
 				}
@@ -97,21 +88,15 @@ export async function logs(options?: LogsOptions): Promise<void> {
 	}
 
 	if (follow) {
-		if (logPaths.length === 1) {
-			await followSingleLog(logPaths[0]?.path ?? "")
-		} else {
-			await followMultipleLogs(logPaths)
-		}
+		await followLogs(logPaths)
+	} else if (logPaths.length === 1) {
+		await Bun.spawn(["tail", "-n", `${limit}`, logPaths[0]?.path ?? ""], {
+			stderr: "inherit",
+			stdout: "inherit"
+		}).exited
 	} else {
-		if (logPaths.length === 1) {
-			await Bun.spawn(["tail", "-n", `${limit}`, logPaths[0]?.path ?? ""], {
-				stderr: "inherit",
-				stdout: "inherit"
-			}).exited
-		} else {
-			for (const item of logPaths) {
-				await tailWithPrefix(item.path, `[${item.name}]`, limit)
-			}
+		for (const item of logPaths) {
+			await tailWithPrefix(item.path, `[${item.name}]`, limit)
 		}
 	}
 }

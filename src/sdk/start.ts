@@ -16,9 +16,9 @@ import {
 	CADDY_INSTALL_COMMANDS,
 	CADDY_PORT,
 	DNSMASQ_INSTALL_COMMANDS,
-	DNSMASQ_PORT,
-	PATHS
+	DNSMASQ_PORT
 } from "#/utils/constants"
+import { SERVICES } from "./shared"
 
 async function cleanupPartialState(pids: number[], stateDir: string) {
 	for (const pid of pids) {
@@ -146,55 +146,48 @@ export async function start(
 
 		await $`mkdir -p ${configDir} ${stateDir} ${logsDir}`
 
-		const dnsmasqConfig = `address=/local/127.0.0.1
+		const serviceConfigs: ServiceConfig[] = [
+			{
+				command: ["dnsmasq", "-C", `${configDir}/dnsmasq.conf`],
+				configContent: `address=/local/127.0.0.1
 port=${DNSMASQ_PORT}
 listen-address=127.0.0.1
 cache-size=10000
 server=1.1.1.1
 server=8.8.8.8
-keep-in-foreground`.trim()
-
-		const caddyConfig = `{
+keep-in-foreground`.trim(),
+				configFile: "dnsmasq.conf",
+				name: "dnsmasq",
+				port: DNSMASQ_PORT,
+				statePath: SERVICES.find((s) => s.name === "dnsmasq")?.statePath ?? ""
+			},
+			{
+				command: ["caddy", "run", "--config", `${configDir}/Caddyfile`],
+				configContent: `{
 	admin 127.0.0.1:2519
 }
 
 http://localhost:${CADDY_PORT} {
 	respond "Localport is working! Use custom .local domains by setting DNS to 127.0.0.1:${DNSMASQ_PORT}"
-}`.trim()
-
-		await startService(
-			configDir,
-			detached,
-			logsDir,
-			{
-				command: ["dnsmasq", "-C", `${configDir}/dnsmasq.conf`],
-				configContent: dnsmasqConfig,
-				configFile: "dnsmasq.conf",
-				name: "dnsmasq",
-				port: DNSMASQ_PORT,
-				statePath: PATHS.DNSMASQ_STATE
-			},
-			verbose,
-			startedPids,
-			stateDir
-		)
-
-		await startService(
-			configDir,
-			detached,
-			logsDir,
-			{
-				command: ["caddy", "run", "--config", `${configDir}/Caddyfile`],
-				configContent: caddyConfig,
+}`.trim(),
 				configFile: "Caddyfile",
 				name: "caddy",
 				port: CADDY_PORT,
-				statePath: PATHS.CADDY_STATE
-			},
-			verbose,
-			startedPids,
-			stateDir
-		)
+				statePath: SERVICES.find((s) => s.name === "caddy")?.statePath ?? ""
+			}
+		]
+
+		for (const config of serviceConfigs) {
+			await startService(
+				configDir,
+				detached,
+				logsDir,
+				config,
+				verbose,
+				startedPids,
+				stateDir
+			)
+		}
 
 		if (verbose) console.log("🎉 Localport is running!")
 	})

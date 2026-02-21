@@ -6,42 +6,31 @@ import { logger } from "#/utils/logger"
 
 const CADDY_ADMIN_API = "http://127.0.0.1:2519"
 
-type CaddyMatch = {
-	host?: string[]
-}
-
-type CaddyHandler = {
-	handler: string
-	upstreams?: Array<{ dial: string }>
-}
-
 type CaddyRoute = {
-	match: CaddyMatch[]
-	handle: CaddyHandler[]
-}
-
-type CaddyServer = {
-	listen?: string[]
-	routes?: CaddyRoute[]
-}
-
-type CaddyHttp = {
-	servers?: {
-		srv0?: CaddyServer
-	}
-}
-
-type CaddyApps = {
-	http?: CaddyHttp
+	match: Array<{ host?: string[] }>
+	handle: Array<{ handler: string; upstreams?: Array<{ dial: string }> }>
 }
 
 type CaddyConfig = {
-	apps?: CaddyApps
+	apps?: {
+		http?: {
+			servers?: {
+				srv0?: {
+					listen?: string[]
+					routes?: CaddyRoute[]
+				}
+			}
+		}
+	}
 }
 
 async function reloadDnsmasq(): Promise<void> {
 	try {
-		const home = process.env["HOME"] || process.env["USERPROFILE"]
+		const home =
+			// biome-ignore lint/complexity/useLiteralKeys: Required for TypeScript index signature
+			process.env["HOME"] ||
+			// biome-ignore lint/complexity/useLiteralKeys: Required for TypeScript index signature
+			process.env["USERPROFILE"]
 		if (!home) return
 		const pidFile = file(`${home}/.local/state/localport/dnsmasq.pid`)
 		if (await pidFile.exists()) {
@@ -88,12 +77,11 @@ async function updateCaddyConfig(config: CaddyConfig): Promise<void> {
 	}
 }
 
-function ensureCaddyHttpServer(config: CaddyConfig): CaddyServer {
+function ensureCaddyServer(config: CaddyConfig) {
 	if (!config.apps) config.apps = {}
 	if (!config.apps.http) config.apps.http = { servers: {} }
 	if (!config.apps.http.servers) config.apps.http.servers = {}
 	if (!config.apps.http.servers.srv0) config.apps.http.servers.srv0 = {}
-	return config.apps.http.servers.srv0
 }
 
 async function removeCaddyRoutes(domains: string[]): Promise<void> {
@@ -111,7 +99,10 @@ async function removeCaddyRoutes(domains: string[]): Promise<void> {
 
 		if (server.routes.length === updatedRoutes.length) return
 
-		ensureCaddyHttpServer(config).routes = updatedRoutes
+		ensureCaddyServer(config)
+		if (config.apps?.http?.servers?.srv0) {
+			config.apps.http.servers.srv0.routes = updatedRoutes
+		}
 		await updateCaddyConfig(config)
 		logger.info(
 			`Removed ${server.routes.length - updatedRoutes.length} old routes from Caddy`
@@ -131,8 +122,8 @@ async function addCaddyRoutes(
 			return
 		}
 
-		const server = ensureCaddyHttpServer(config)
-		const existingRoutes = server.routes || []
+		ensureCaddyServer(config)
+		const existingRoutes = config.apps?.http?.servers?.srv0?.routes || []
 		const newRoutes: CaddyRoute[] = []
 
 		for (const mapping of mappings) {
@@ -160,7 +151,13 @@ async function addCaddyRoutes(
 
 		if (newRoutes.length === 0) return
 
-		server.routes = [...existingRoutes, ...newRoutes]
+		ensureCaddyServer(config)
+		if (
+			config.apps?.http?.servers?.srv0 !== undefined &&
+			config.apps?.http?.servers?.srv0 !== null
+		) {
+			config.apps.http.servers.srv0.routes = [...existingRoutes, ...newRoutes]
+		}
 		await updateCaddyConfig(config)
 		logger.info(`Added ${newRoutes.length} new routes to Caddy`)
 	} catch (error) {

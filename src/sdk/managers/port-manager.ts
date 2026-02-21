@@ -3,14 +3,19 @@ import { $, file } from "bun"
 import { checkPort, loadGlobalConfig } from "#/utils"
 import { logger } from "#/utils/logger"
 
-const ASSIGNMENTS_FILE = `${process.env["HOME"] || process.env["USERPROFILE"]}/.local/state/localport/ports/assignments.json`
-
 type PortAssignments = Record<string, Record<string, number>>
 
 type PortAssignment = {
 	port: number
 	name?: string
 }
+
+const ASSIGNMENTS_FILE = `${
+	// biome-ignore lint/complexity/useLiteralKeys: Required for TypeScript index signature
+	process.env["HOME"] ||
+	// biome-ignore lint/complexity/useLiteralKeys: Required for TypeScript index signature
+	process.env["USERPROFILE"]
+}/.local/state/localport/ports/assignments.json`
 
 async function readAssignments(): Promise<PortAssignments> {
 	const f = file(ASSIGNMENTS_FILE)
@@ -49,15 +54,9 @@ export async function findAvailablePort(
 
 export async function getAssignedPorts(): Promise<Set<number>> {
 	const assignments = await readAssignments()
-	const allPorts = new Set<number>()
-
-	for (const program of Object.values(assignments)) {
-		for (const port of Object.values(program)) {
-			allPorts.add(port)
-		}
-	}
-
-	return allPorts
+	return new Set(
+		Object.values(assignments).flatMap((ports) => Object.values(ports))
+	)
 }
 
 export async function assignAutoPorts(
@@ -104,15 +103,10 @@ export async function assignAutoPorts(
 			}
 		}
 
-		const portAssignment: PortAssignment = {
-			port: portNumber
+		assignedPorts[portKey] = {
+			port: portNumber,
+			...(portConfig.name !== undefined ? { name: portConfig.name } : {})
 		}
-
-		if (portConfig.name !== undefined) {
-			portAssignment.name = portConfig.name
-		}
-
-		assignedPorts[portKey] = portAssignment
 		allAssignedPorts.add(portNumber)
 	}
 

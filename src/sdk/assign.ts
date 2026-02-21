@@ -1,25 +1,4 @@
-import { $, file } from "bun"
-
-import { getLocalportPortsDir } from "#/utils"
-
-const PORTS_DIR = getLocalportPortsDir()
-const ASSIGNMENTS_FILE = `${PORTS_DIR}/assignments.json`
-
-type Assignments = Record<string, number[]>
-
-async function readAssignments(): Promise<Assignments> {
-	const f = file(ASSIGNMENTS_FILE)
-	if (!(await f.exists())) {
-		await $`mkdir -p ${PORTS_DIR}`
-		return {}
-	}
-	return JSON.parse(await f.text())
-}
-
-async function writeAssignments(assignments: Assignments): Promise<void> {
-	await $`mkdir -p ${PORTS_DIR}`
-	await file(ASSIGNMENTS_FILE).write(JSON.stringify(assignments, null, 2))
-}
+import { readAssignments, writeAssignments } from "./shared"
 
 export async function assign(
 	program: string,

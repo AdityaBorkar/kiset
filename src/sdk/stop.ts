@@ -7,7 +7,7 @@ import {
 	getLocalportStateDir,
 	readPidWithBackwardsCompat
 } from "#/utils"
-import { PATHS } from "#/utils/constants"
+import { SERVICES } from "./shared"
 
 export async function stop(verbose: boolean = false) {
 	const spinner = verbose ? ora("Stopping localport...").start() : null
@@ -17,20 +17,7 @@ export async function stop(verbose: boolean = false) {
 	await lockFile.withLock(async () => {
 		let stoppedCount = 0
 
-		const services = [
-			{
-				name: "caddy",
-				pidPath: `${stateDir}/caddy.pid`,
-				statePath: PATHS.CADDY_STATE
-			},
-			{
-				name: "dnsmasq",
-				pidPath: `${stateDir}/dnsmasq.pid`,
-				statePath: PATHS.DNSMASQ_STATE
-			}
-		]
-
-		for (const service of services) {
+		for (const service of SERVICES) {
 			const pid = await readPidWithBackwardsCompat(
 				service.statePath,
 				service.pidPath

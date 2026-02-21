@@ -1,8 +1,8 @@
 import { $, file } from "bun"
 
 import { checkDnsHealth, checkHttpHealth, getLocalportStateDir } from "#/utils"
-import { CADDY_PORT, DNSMASQ_PORT } from "#/utils/constants"
 import { logger } from "#/utils/logger"
+import { SERVICES } from "../shared"
 
 export interface WatchdogConfig {
 	checkInterval?: number
@@ -58,17 +58,13 @@ export class ServiceWatchdog {
 
 	private async checkServices(): Promise<void> {
 		const stateDir = getLocalportStateDir()
-		const services = [
-			{
-				name: "dnsmasq",
-				pidPath: `${stateDir}/dnsmasq.pid`,
-				port: DNSMASQ_PORT
-			},
-			{ name: "caddy", pidPath: `${stateDir}/caddy.pid`, port: CADDY_PORT }
-		]
 
-		for (const service of services) {
-			await this.checkService(service)
+		for (const service of SERVICES) {
+			await this.checkService({
+				name: service.name,
+				pidPath: `${stateDir}/${service.name}.pid`,
+				port: service.port
+			})
 		}
 	}
 

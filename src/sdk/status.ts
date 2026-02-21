@@ -6,27 +6,12 @@ import {
 	readPidWithBackwardsCompat,
 	type ServiceStatus
 } from "#/utils"
-import { CADDY_PORT, DNSMASQ_PORT, PATHS } from "#/utils/constants"
+import { SERVICES } from "./shared"
 
 export async function status(verbose: boolean = false) {
-	const services = [
-		{
-			name: "dnsmasq",
-			pidPath: PATHS.DNSMASQ_PID,
-			port: DNSMASQ_PORT,
-			statePath: PATHS.DNSMASQ_STATE
-		},
-		{
-			name: "caddy",
-			pidPath: PATHS.CADDY_PID,
-			port: CADDY_PORT,
-			statePath: PATHS.CADDY_STATE
-		}
-	]
-
 	const results: ServiceStatus[] = []
 
-	for (const service of services) {
+	for (const service of SERVICES) {
 		const pid = await readPidWithBackwardsCompat(
 			service.statePath,
 			service.pidPath
