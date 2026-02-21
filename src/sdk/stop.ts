@@ -2,7 +2,40 @@ import { $, file } from "bun"
 
 import ora from "ora"
 
+import { PATHS } from "../constants"
 import { createLockFile, getLocalportStateDir } from "../utils"
+
+interface ServiceState {
+	pid: number
+	port: number
+}
+
+async function readServiceState(
+	statePath: string
+): Promise<ServiceState | null> {
+	try {
+		const content = await file(statePath).text()
+		const state = JSON.parse(content) as ServiceState
+		return state
+	} catch {
+		return null
+	}
+}
+
+async function readPidWithBackwardsCompat(
+	statePath: string,
+	pidPath: string
+): Promise<number | null> {
+	const state = await readServiceState(statePath)
+	if (state) return state.pid
+
+	try {
+		const content = await file(pidPath).text()
+		return Number.parseInt(content.trim(), 10)
+	} catch {
+		return null
+	}
+}
 
 /**
  * Stops dnsmasq and Caddy services.
@@ -20,18 +53,24 @@ export async function stop(verbose: boolean = false) {
 		let stoppedCount = 0
 
 		const caddyPidPath = `${stateDir}/caddy.pid`
-		if (await file(caddyPidPath).exists()) {
-			const pid = await file(caddyPidPath).text()
-			await $`kill ${pid.trim()} 2>/dev/null || true`
-			await $`rm -f ${caddyPidPath}`
+		const caddyPid = await readPidWithBackwardsCompat(
+			PATHS.CADDY_STATE,
+			caddyPidPath
+		)
+		if (caddyPid) {
+			await $`kill ${caddyPid} 2>/dev/null || true`
+			await $`rm -f ${caddyPidPath} ${PATHS.CADDY_STATE}`
 			stoppedCount++
 		}
 
 		const dnsmasqPidPath = `${stateDir}/dnsmasq.pid`
-		if (await file(dnsmasqPidPath).exists()) {
-			const pid = await file(dnsmasqPidPath).text()
-			await $`kill ${pid.trim()} 2>/dev/null || true`
-			await $`rm -f ${dnsmasqPidPath}`
+		const dnsmasqPid = await readPidWithBackwardsCompat(
+			PATHS.DNSMASQ_STATE,
+			dnsmasqPidPath
+		)
+		if (dnsmasqPid) {
+			await $`kill ${dnsmasqPid} 2>/dev/null || true`
+			await $`rm -f ${dnsmasqPidPath} ${PATHS.DNSMASQ_STATE}`
 			stoppedCount++
 		}
 

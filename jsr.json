@@ -1,5 +1,5 @@
 {
-	"exclude": ["**/*.test.ts", "**/*.spec.ts", "test/**/*", "tests/**/*"],
+	"$schema": "https://jsr.io/schema/config-file.v1.json",
 	"exports": "./src/index.ts",
 	"license": "MIT",
 	"name": "localport",
@@ -7,11 +7,10 @@
 		"include": [
 			"src/**/*",
 			"README.md",
-			"SECURITY.md",
-			"CHANGELOG.md",
 			"LICENSE.md",
+			"CHANGELOG.md",
 			"package.json"
 		]
 	},
-	"version": "0.0.1"
+	"version": "0.0.0-development"
 }

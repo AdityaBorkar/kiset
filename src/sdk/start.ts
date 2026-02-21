@@ -6,7 +6,8 @@ import {
 	CADDY_INSTALL_COMMANDS,
 	CADDY_PORT,
 	DNSMASQ_INSTALL_COMMANDS,
-	DNSMASQ_PORT
+	DNSMASQ_PORT,
+	PATHS
 } from "../constants"
 import {
 	createLockFile,
@@ -23,11 +24,18 @@ async function cleanupPartialState(pids: number[], stateDir: string) {
 	for (const pid of pids) {
 		try {
 			await $`kill ${pid} 2>/dev/null || true`
-		} catch {
-			// Ignore errors when killing processes
-		}
+		} catch {}
 	}
-	await $`rm -f ${stateDir}/dnsmasq.pid ${stateDir}/caddy.pid 2>/dev/null || true`
+	await $`rm -f ${stateDir}/dnsmasq.pid ${stateDir}/caddy.pid ${stateDir}/dnsmasq.json ${stateDir}/caddy.json 2>/dev/null || true`
+}
+
+async function writeStateFile(
+	stateFilePath: string,
+	pid: number,
+	port: number
+) {
+	const state = { pid, port }
+	await write(stateFilePath, JSON.stringify(state, null, 2))
 }
 
 async function logProcessExit(
@@ -55,15 +63,6 @@ async function logProcessExit(
 	} catch {}
 }
 
-/**
- * Starts dnsmasq and Caddy services for local development.
- *
- * @param detached - Run services in detached mode (default: true)
- * @param verbose - Show detailed progress messages (default: false)
- * @returns Promise that resolves when both services are started
- * @throws {ServiceStartError} If either service fails to start
- * @throws {LockAcquisitionError} If lock file cannot be acquired
- */
 export async function start(
 	detached: boolean = true,
 	verbose: boolean = false
@@ -130,7 +129,7 @@ keep-in-foreground
 					stdout: Bun.file(dnsmasq_log)
 				}
 			)
-			await write(`${stateDir}/dnsmasq.pid`, `${dnsmasq_proc.pid}`)
+			await writeStateFile(PATHS.DNSMASQ_STATE, dnsmasq_proc.pid, DNSMASQ_PORT)
 			logProcessExit(dnsmasq_proc, "dnsmasq", dnsmasq_log)
 
 			$dnsmasq_start.text = "Waiting for dnsmasq to be ready..."
@@ -168,7 +167,7 @@ http://localhost:${CADDY_PORT} {
 					stdout: Bun.file(caddy_log)
 				}
 			)
-			await write(`${stateDir}/caddy.pid`, `${caddy_proc.pid}`)
+			await writeStateFile(PATHS.CADDY_STATE, caddy_proc.pid, CADDY_PORT)
 			logProcessExit(caddy_proc, "caddy", caddy_log)
 
 			$caddy_start.text = "Waiting for caddy to be ready..."
@@ -205,7 +204,7 @@ keep-in-foreground
 					stdout: Bun.file(dnsmasq_log)
 				}
 			)
-			await write(`${stateDir}/dnsmasq.pid`, `${dnsmasq_proc.pid}`)
+			await writeStateFile(PATHS.DNSMASQ_STATE, dnsmasq_proc.pid, DNSMASQ_PORT)
 			logProcessExit(dnsmasq_proc, "dnsmasq", dnsmasq_log)
 
 			try {
@@ -236,7 +235,7 @@ http://localhost:${CADDY_PORT} {
 					stdout: Bun.file(caddy_log)
 				}
 			)
-			await write(`${stateDir}/caddy.pid`, `${caddy_proc.pid}`)
+			await writeStateFile(PATHS.CADDY_STATE, caddy_proc.pid, CADDY_PORT)
 			logProcessExit(caddy_proc, "caddy", caddy_log)
 
 			try {

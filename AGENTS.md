@@ -19,103 +19,128 @@ bun src/sdk/stop.ts      # Run stop function directly
 
 ### Linting & Type Checking
 ```bash
-# Coming soon: Biome config mentioned in TODO.md
-# After Biome setup, expected commands:
-bun run lint             # Run linter
-bun run format           # Format code
+bun run lint             # Run Biome linter with auto-fix
 bun run typecheck        # Run TypeScript type checking
 tsc --noEmit             # Manual type check without emitting files
 ```
 
 ### Testing
 ```bash
-# No test framework configured yet
-# Consider adding bun test or vitest
+bun test                 # Run all tests (Bun test framework)
+bun test <test-file>     # Run a specific test file
+bun test --watch         # Run tests in watch mode
 ```
 
 ## Code Style Guidelines
 
 ### Imports
 - Use ES modules with `.ts` extensions: `import { x } from "./file.ts"`
-- Group imports: standard library first, then third-party, then local modules
-- Local imports use relative paths: `./utils.ts`, `../constants.ts`
-- Import from `node:` protocol for Node.js built-ins: `import { homedir } from "node:os"`
+- Group imports by type: URL imports, Node.js/Bun built-ins, packages, then local modules
+- Use `node:` protocol for Node.js built-ins: `import { homedir } from "node:os"`
+- Biome auto-organizes imports on save
 
 ### Formatting
-- Use **tabs** for indentation (confirmed in cli.ts, start.ts, stop.ts)
-- No trailing whitespace
-- Use template literals with Bun's `$` for shell commands
-- Trimming multi-line strings with `.trim()` for clean output
+- **Tabs** for indentation (enforced by Biome)
+- **80 chars** max line width (enforced by Biome)
+- **Semicolons**: as-needed (enforced by Biome)
+- **Trailing commas**: none (enforced by Biome)
+- Use template literals with Bun's `$` for shell commands: `$`command``
+- Use `.trim()` on multi-line strings for clean output
 
 ### TypeScript
-- Strict mode enabled in tsconfig.json
+- **Strict mode** enabled - all strict compiler flags on
 - Use explicit `as` type assertions only when necessary: `return "darwin" as PlatformId`
 - Define types with `as const` for readonly arrays: `const PLATFORMS = [...] as const`
-- Use `Record<PlatformId, string>` for mapped types
-- Enable `verbatimModuleSyntax` - no automatic `.js` extension removal
+- Use `Record<PlatformId, string>` for platform-specific mappings
+- Schema validation with **arktype**: `const Schema = type({...})`
+- Type inference: `type SchemaType = typeof Schema.infer`
 
 ### Naming Conventions
-- **Functions/Variables**: camelCase - `getPlatformId()`, `dnsmasqSpinner`
-- **Types/Interfaces**: PascalCase - `PlatformId`, `InstallOptions`
-- **Constants**: UPPER_SNAKE_CASE - `DNSMASQ_PORT`, `CADDY_CONFIG`
+- **Functions/Variables**: camelCase - `getPlatformId()`, `waitForService()`
+- **Types/Interfaces**: PascalCase - `PlatformId`, `ServiceStatus`
+- **Constants**: UPPER_SNAKE_CASE - `DNSMASQ_PORT`, `CADDY_PORT`
 - **Files**: lowercase with underscores for multi-word - `dnsmasq.conf`, `caddy.pid`
 - **CLI Commands**: lowercase kebab-case - `localport start`, `localport stop`
 
 ### Error Handling
-- Use `throw new Error()` for unrecoverable errors with descriptive messages
-- Use `.catch()` for promise rejections with console.error logging
+- Custom error classes extend `Error`: `export class ServiceStartError extends Error`
+- Use descriptive error messages with context
 - Use `|| true` pattern to ignore shell command failures gracefully
 - Check file existence before operations: `await file(path).exists()`
-- Validate platform support before proceeding with installation
+- Validate inputs with arktype schemas before processing
+- Exit codes: ERROR(1), SUCCESS(0), USAGE(2)
 
 ### File Organization
 ```
 src/
-  ├── cli.ts              # Entry point for CLI commands
-  ├── index.ts            # Main exports (for library usage)
-  ├── utils.ts            # Shared utility functions
-  ├── constants.ts        # Platform-specific constants and configs
-  └── sdk/
-      ├── start.ts        # Start service logic
-      └── stop.ts         # Stop service logic
+  ├── cli.ts              # CLI entry point, commander config
+  ├── config.ts           # Arktype schemas and validation
+  ├── constants.ts        # Platform-specific configs
+  ├── index.ts            # Public API exports
+  ├── sdk/
+  │   ├── start.ts        # Service startup logic
+  │   ├── stop.ts         # Service shutdown logic
+  │   ├── status.ts       # Health checking
+  │   └── ...             # Other SDK modules
+  └── utils/
+      ├── index.ts        # Core utilities, platform detection
+      ├── errors.ts       # Custom error classes
+      ├── logger.ts       # Consola logging setup
+      └── merge.ts        # Deep merge utilities
 ```
 
 ### Async Patterns
 - Prefer async/await over promise chaining
-- Use Bun.spawn() for detached processes
-- Use Bun.file() for file operations
-- Use ora spinners for long-running async operations
+- Use `Bun.spawn()` for detached processes with `{ detached: true }`
+- Use `Bun.file()` for file operations: `await file(path).write(content)`
+- Use `ora` spinners for long-running async operations with descriptive messages
+- Use `retryWithBackoff()` for flaky operations (e.g., network checks)
 
 ### Logging & User Output
-- Use `console.log()` for informational messages
-- Use `console.error()` for error messages
-- Use ora for loading spinners with descriptive messages
-- Format multi-line config strings with `.trim()`
+- Use `consola` logger: `logger.info()`, `logger.error()`, `logger.warn()`
+- Log levels: debug, info, warn, error, silent (set via `--log-level`)
+- JSON output mode: set `--json` flag for machine-readable output
+- Log health check failures with context and suggestions
 
 ### Platform-Specific Code
-- Detect platform using `process.platform`
-- Use Record<PlatformId, string> for platform-specific mappings
+- Detect platform via `getPlatformId()` from `src/utils/index.ts`
+- Platform IDs: darwin, ubuntu, debian, fedora, rhel, centos, arch, manjaro
+- Use `Record<PlatformId, string>` for platform-specific commands/paths
 - Validate platform support before accessing platform-specific configs
 - Handle unsupported platforms with clear error messages
 
 ### State Management
-- Store PIDs in `.pid` files under state directory
-- Use XDG-compliant directories: `$XDG_CONFIG_HOME` and `$XDG_STATE_HOME`
-- Create directories with `mkdir -p` before use
+- **XDG-compliant directories**:
+  - Config: `$XDG_CONFIG_HOME/localport/` (~/.config/localport/)
+  - State: `$XDG_STATE_HOME/localport/` (~/.local/state/localport/)
+  - Logs: `$XDG_STATE_HOME/localport/logs/`
+- Store PIDs in `.pid` files: `caddy.pid`, `dnsmasq.pid`
+- Use lock files with `createLockFile().withLock()` for critical sections
+- Create directories with `mkdir -p` before use: `$`mkdir -p ${dir}``
 
 ### Security Considerations
+- Validate all user inputs with arktype schemas
 - Shell commands use template literals: `$`command``
-- User-supplied commands should be validated before execution
 - Use `|| true` to suppress errors in cleanup operations
-- Always check file existence before reading/writing
+- Check file existence before reading/writing: `await file(path).exists()`
+- Sanitize paths and avoid command injection
+
+### Process Management
+- Spawn processes: `Bun.spawn([...args], { detached, stdout, stderr })`
+- Check if process running: `await isProcessRunning(pid)`
+- Wait for service ready: `await waitForService(pid, port, timeout)`
+- Graceful shutdown on SIGTERM/SIGINT with cleanup handlers
+- Log process exit codes with context: 143 (SIGTERM), 130 (SIGINT), 137 (SIGKILL)
 
 ### Comments
-- NO COMMENTS unless explicitly requested
+- **NO COMMENTS** unless explicitly requested
 - Let code be self-documenting
-- Use descriptive function and variable names instead of comments
+- Use descriptive function and variable names
 
 ### External Dependencies
-- Use `commander` for CLI structure
-- Use `ora` for terminal spinners
-- Use Bun APIs ($, file, spawn) for system operations
-- Follow Bun conventions over Node.js when available
+- **commander** - CLI framework
+- **consola** - Logging (imported as `logger`)
+- **ora** - Terminal spinners
+- **arktype** - Schema validation
+- **Bun APIs** - `$`, `file`, `spawn` for system operations
+- **Node.js** - Use `node:` protocol for built-ins when Bun alternative unavailable

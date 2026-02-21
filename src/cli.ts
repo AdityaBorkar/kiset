@@ -6,8 +6,9 @@ import { Command } from "commander"
 
 import { assign } from "./sdk/assign"
 import { list } from "./sdk/list"
+import { logs } from "./sdk/logs"
 import { rm as removePort } from "./sdk/rm"
-import { executeCommand } from "./sdk/run-command"
+import { executeCommand } from "./sdk/run"
 import { start } from "./sdk/start"
 import { status } from "./sdk/status"
 import { stop } from "./sdk/stop"
@@ -104,10 +105,10 @@ program.hook("preAction", () => {
 program
 	.command("start")
 	.description("Start the service")
-	.option("--no-detached", "Run in foreground mode")
+	.option("--foreground", "Run in foreground mode", false)
 	.action(async (options) => {
 		if (jsonOutput) {
-			await start(options.detached, false)
+			await start(!options.foreground, false)
 			console.log(
 				JSON.stringify({
 					exitCode: EXIT_CODES.SUCCESS,
@@ -115,7 +116,7 @@ program
 				})
 			)
 		} else {
-			await start(options.detached, true)
+			await start(!options.foreground, true)
 		}
 	})
 
@@ -158,6 +159,31 @@ program
 				}
 			}
 		}
+	})
+
+program
+	.command("logs")
+	.description("Show logs from services")
+	.argument("[service]", "Service name (dnsmasq or caddy)")
+	.option("--follow", "Stream logs in real-time", false)
+	.option("--limit <n>", "Number of log lines to show", "50")
+	.action(async (service, options) => {
+		const serviceTyped =
+			service === "dnsmasq" || service === "caddy"
+				? (service as "dnsmasq" | "caddy")
+				: undefined
+		const logsOptions: {
+			follow: boolean
+			limit: number
+			service?: "dnsmasq" | "caddy"
+		} = {
+			follow: options.follow,
+			limit: Number.parseInt(options.limit, 10) || 50
+		}
+		if (serviceTyped) {
+			logsOptions.service = serviceTyped
+		}
+		await logs(logsOptions)
 	})
 
 program

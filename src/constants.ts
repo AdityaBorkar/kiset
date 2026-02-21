@@ -4,7 +4,9 @@ const stateDir = getLocalportStateDir()
 
 export const PATHS = {
 	CADDY_PID: `${stateDir}/caddy.pid`,
-	DNSMASQ_PID: `${stateDir}/dnsmasq.pid`
+	CADDY_STATE: `${stateDir}/caddy.json`,
+	DNSMASQ_PID: `${stateDir}/dnsmasq.pid`,
+	DNSMASQ_STATE: `${stateDir}/dnsmasq.json`
 }
 
 export const DNSMASQ_PORT = 5353

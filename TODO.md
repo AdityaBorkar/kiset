@@ -1,16 +1,26 @@
 # TODO
 
-GET IT FULLY DONE AND DUSTED BY 10AM IST
+## Features
 
-1. Make it work
-2. .github checks
-3. .husky checks
-4. scripts/ checks
-5. Root Dir File Checks
-
-sudo portless trust
-
---foreground for `start`
+1. Make it work. Test if installation works of caddy and dnsmasq. If not, ask the user to install. Give them command.
+2. Versioning Script
+      - Changelog
+      - Readme File + Contributing File. Write ARCHITECTURE in CONTRIBUTING.md
+      - Versioning
+3. GitHub Actions for CI/CD.
+      - .github checks
+      - Always Audit (bun audit) before release.
+      - .releaserc.json
+      - Sync jsr.json with package.json  / Auto-update jsr.json based on package.json
+      - versioning.ts and generate version
+      - Tsup, Publish to JSR
+      - Release
+4. Setup GitHub Repository Script
+5. Comprehensive Audit
+      - Security Implications and Security Audit of this repository
+      - Resolve lint errors and ts errors
+6. sudo portless trust
+7. Support { post_assignment: allow, deny } in global config
 
 routes.json Maps hostnames to ports
 routes.lock Prevents concurrent writes
@@ -18,60 +28,8 @@ proxy.pid PID of the running proxy
 proxy.port Port the proxy is listening on
 proxy.log Proxy daemon log output
 
-Random = 4000--4999 range
+## Marketing
 
-<!-- TODO: Support Allow and Deny in config -->
-
----
-
-1. Write a SECURITY.md & CONTRIBUTING.md & CHANGELOG.md-Versioning & README.md file for the project.
-2. Biome Config, Tsup, Publish to NPM and JSR
-3. GitHub Actions for CI/CD. Always Audit (bun audit) before release.
-4. Write a Personal Blog Post about the project
-5. Spread the word on Twitter
-6. AI Based Checklist for the project launch
-
-- Changelog
-- Readme File + Contributing File
-- Versioning
-- Always Audit (bun audit) before release.
-- Release
-- Security Implications and Security Audit of this repository
-- Test if installation works
-
-**No Custom Error Types**
-
-- Using generic `Error` class everywhere
-- No domain-specific error types for better error handling
-- No error codes or categorization
-
-**No Logging Library**
-
-- Using `console.log` and `console.error` directly
-- No structured logging (JSON, levels, timestamps)
-- No log rotation configuration
-- No configurable log levels for debugging
-
-**Inconsistent Error Handling**
-
-- Some errors thrown, others logged and continued
-- No standardized error handling pattern
-- Mix of synchronous and asynchronous error handling approaches
-
-**No Graceful Shutdown**
-
-- No SIGTERM/SIGINT handlers in CLI
-- Services may not stop cleanly on interrupt
-- PID files may be left orphaned
-
-**No Exit Code Standards**
-
-- No explicit exit codes for different failure scenarios
-- All exits use default code 0 or 1
-- Makes script automation and monitoring difficult
-
-**No Restart Logic**
-
-- Services do not auto-restart on crash
-- No watchdog mechanism
-- No failure recovery strategies
+1. Write a Personal Blog Post about the project
+2. Spread the word on Twitter
+3. AI Based Checklist for the project launch

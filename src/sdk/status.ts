@@ -3,17 +3,63 @@ import { $, file } from "bun"
 import { CADDY_PORT, DNSMASQ_PORT, PATHS } from "../constants"
 import { checkDnsHealth, checkHttpHealth, type ServiceStatus } from "../utils"
 
+interface ServiceState {
+	pid: number
+	port: number
+}
+
+async function readServiceState(
+	statePath: string
+): Promise<ServiceState | null> {
+	try {
+		const content = await file(statePath).text()
+		const state = JSON.parse(content) as ServiceState
+		return state
+	} catch {
+		return null
+	}
+}
+
+async function readPidWithBackwardsCompat(
+	statePath: string,
+	pidPath: string
+): Promise<number | null> {
+	const state = await readServiceState(statePath)
+	if (state) return state.pid
+
+	try {
+		const content = await file(pidPath).text()
+		return Number.parseInt(content.trim(), 10)
+	} catch {
+		return null
+	}
+}
+
 export async function status(verbose: boolean = false) {
 	const services = [
-		{ name: "dnsmasq", pidPath: PATHS.DNSMASQ_PID, port: DNSMASQ_PORT },
-		{ name: "caddy", pidPath: PATHS.CADDY_PID, port: CADDY_PORT }
+		{
+			name: "dnsmasq",
+			pidPath: PATHS.DNSMASQ_PID,
+			port: DNSMASQ_PORT,
+			statePath: PATHS.DNSMASQ_STATE
+		},
+		{
+			name: "caddy",
+			pidPath: PATHS.CADDY_PID,
+			port: CADDY_PORT,
+			statePath: PATHS.CADDY_STATE
+		}
 	]
 
 	const results: ServiceStatus[] = []
 
 	for (const service of services) {
-		if (await file(service.pidPath).exists()) {
-			const pid = (await file(service.pidPath).text()).trim()
+		const pid = await readPidWithBackwardsCompat(
+			service.statePath,
+			service.pidPath
+		)
+
+		if (pid) {
 			const isRunning = await $`kill -0 ${pid} 2>/dev/null`
 				.quiet()
 				.then(() => true)
@@ -36,7 +82,7 @@ export async function status(verbose: boolean = false) {
 				results.push({
 					healthy,
 					name: service.name,
-					pid,
+					pid: String(pid),
 					port: service.port,
 					running: true,
 					...(service.name === "dnsmasq"
