@@ -1,12 +1,12 @@
-import { getLocalportStateDir, type PlatformId } from "."
+import { getPaths, type Platform } from "."
 
-const stateDir = getLocalportStateDir()
+const paths = getPaths()
 
 export const PATHS = {
-	CADDY_PID: `${stateDir}/caddy.pid`,
-	CADDY_STATE: `${stateDir}/caddy.json`,
-	DNSMASQ_PID: `${stateDir}/dnsmasq.pid`,
-	DNSMASQ_STATE: `${stateDir}/dnsmasq.json`
+	CADDY_PID: `${paths.state}/caddy.pid`,
+	CADDY_STATE: `${paths.state}/caddy.json`,
+	DNSMASQ_PID: `${paths.state}/dnsmasq.pid`,
+	DNSMASQ_STATE: `${paths.state}/dnsmasq.json`
 }
 
 export const DNSMASQ_PORT = 5353
@@ -21,7 +21,7 @@ export const DNSMASQ_INSTALL_COMMANDS = {
 	manjaro: "sudo pacman -S --noconfirm dnsmasq",
 	rhel: "sudo yum install -y dnsmasq",
 	ubuntu: "sudo apt-get install -y dnsmasq"
-} as Record<PlatformId, string>
+} as Record<Platform, string>
 
 export const DNSMASQ_CONFIG = `
 address=/local/127.0.0.1
@@ -45,7 +45,7 @@ export const DNSMASQ_CONFIG_PATHS = {
 	manjaro: "/etc/dnsmasq.conf",
 	rhel: "/etc/dnsmasq.conf",
 	ubuntu: "/etc/dnsmasq.conf"
-} as Record<PlatformId, string>
+} as Record<Platform, string>
 
 export const CADDY_INSTALL_COMMANDS = {
 	arch: "sudo pacman -S --noconfirm caddy",
@@ -56,7 +56,7 @@ export const CADDY_INSTALL_COMMANDS = {
 	manjaro: "sudo pacman -S --noconfirm caddy",
 	rhel: "sudo yum install -y caddy",
 	ubuntu: "sudo apt-get install -y caddy"
-} as Record<PlatformId, string>
+} as Record<Platform, string>
 
 export const CADDY_CONFIG_PATHS = {
 	arch: "/etc/caddy/Caddyfile",
@@ -66,4 +66,4 @@ export const CADDY_CONFIG_PATHS = {
 	manjaro: "/etc/caddy/Caddyfile",
 	rhel: "/etc/caddy/Caddyfile",
 	ubuntu: "/etc/caddy/Caddyfile"
-} as Record<PlatformId, string>
+} as Record<Platform, string>

@@ -9,38 +9,25 @@ import {
 } from "./config.ts"
 import { deepMerge } from "./merge.ts"
 
-export function getXdgConfigDir(): string {
+export function getPaths() {
 	// biome-ignore lint/complexity/useLiteralKeys: Typescript doesn't support literal keys in process.env
-	return process.env["XDG_CONFIG_HOME"] ?? `${homedir()}/.config`
-}
-
-export function getXdgStateDir(): string {
+	const xdg_config = process.env["XDG_CONFIG_HOME"] ?? `${homedir()}/.config`
 	// biome-ignore lint/complexity/useLiteralKeys: Typescript doesn't support literal keys in process.env
-	return process.env["XDG_STATE_HOME"] || `${homedir()}/.local/state`
-}
+	const xdg_state = process.env["XDG_STATE_HOME"] || `${homedir()}/.local/state`
 
-export function getLocalportConfigDir(): string {
-	return `${getXdgConfigDir()}/localport`
-}
-
-export function getLocalportStateDir(): string {
-	return `${getXdgStateDir()}/localport`
-}
-
-export function getLocalportLogsDir(): string {
-	return `${getLocalportStateDir()}/logs`
-}
-
-export function getLocalportPortsDir(): string {
-	return `${getLocalportConfigDir()}/ports`
-}
-
-export function getGlobalConfigPath(): string {
-	return `${getLocalportConfigDir()}/localport.json`
+	return {
+		caddy_config: `${xdg_config}/localport/Caddyfile`,
+		config: `${xdg_config}/localport`,
+		dnsmasq_config: `${xdg_config}/localport/dnsmasq.conf`,
+		global_config: `${xdg_config}/localport/localport.json`,
+		logs: `${xdg_state}/localport/logs`,
+		ports: `${xdg_config}/localport/ports`,
+		state: `${xdg_state}/localport`
+	}
 }
 
 export async function loadGlobalConfig(): Promise<GlobalConfigSchemaType> {
-	const configPath = getGlobalConfigPath()
+	const configPath = getPaths().global_config
 	const configFile = file(configPath)
 
 	if (!(await configFile.exists())) {
@@ -63,8 +50,8 @@ export async function loadGlobalConfig(): Promise<GlobalConfigSchemaType> {
 export async function saveGlobalConfig(
 	config: Partial<GlobalConfigSchemaType>
 ): Promise<void> {
-	const configPath = getGlobalConfigPath()
-	const configDir = getLocalportConfigDir()
+	const configPath = getPaths().global_config
+	const configDir = getPaths().config
 
 	await $`mkdir -p ${configDir}`
 
@@ -87,17 +74,17 @@ export const SUPPORTED_PLATFORMS = [
 	"manjaro"
 ] as const
 
-export type PlatformId = (typeof SUPPORTED_PLATFORMS)[number]
+export type Platform = (typeof SUPPORTED_PLATFORMS)[number]
 
-export async function getPlatformId(): Promise<PlatformId> {
+export async function getPlatform(): Promise<Platform> {
 	const platform = process.platform
 	if (platform === "darwin") {
-		return "darwin" as PlatformId
+		return "darwin" as Platform
 	}
 	if (platform === "linux") {
 		const osRelease = await $`cat /etc/os-release`.text()
 		const idMatch = osRelease.match(/^ID="?([^"\n]+)"?/m)
-		const id = idMatch?.[1] as PlatformId
+		const id = idMatch?.[1] as Platform
 		if (!id || !SUPPORTED_PLATFORMS.includes(id)) {
 			throw new Error(`Unsupported platform: ${id}`)
 		}
@@ -287,6 +274,10 @@ export async function waitForPort(
 	throw new Error(`Port ${port} did not become ready within ${timeout}ms`)
 }
 
+export async function kill_pid(pid: string | number) {
+	return await $`kill ${pid} 2>/dev/null || true`
+}
+
 export async function waitForService(
 	pid: number,
 	port: number,
@@ -313,7 +304,7 @@ export async function waitForService(
 	)
 }
 
-class LockFile {
+export class LockFile {
 	private lockPath: string
 	private acquired = false
 
@@ -368,8 +359,4 @@ class LockFile {
 			await this.release()
 		}
 	}
-}
-
-export function createLockFile(lockPath: string): LockFile {
-	return new LockFile(lockPath)
 }

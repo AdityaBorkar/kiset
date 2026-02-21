@@ -1,9 +1,9 @@
 import { $, file } from "bun"
 
-import { getLocalportPortsDir } from "#/utils"
+import { getPaths } from "#/utils"
 import { CADDY_PORT, DNSMASQ_PORT, PATHS } from "#/utils/constants"
 
-export const PORTS_DIR = getLocalportPortsDir()
+export const PORTS_DIR = getPaths().ports
 export const ASSIGNMENTS_FILE = `${PORTS_DIR}/assignments.json`
 
 export type Assignments = Record<string, number[]>
@@ -44,4 +44,13 @@ export async function writeAssignments(
 ): Promise<void> {
 	await $`mkdir -p ${PORTS_DIR}`
 	await file(ASSIGNMENTS_FILE).write(JSON.stringify(assignments, null, 2))
+}
+
+export async function cleanupPartialState(pids: number[], stateDir: string) {
+	for (const pid of pids) {
+		try {
+			await $`kill ${pid} 2>/dev/null || true`
+		} catch {}
+	}
+	await $`rm -f ${stateDir}/dnsmasq.pid ${stateDir}/caddy.pid ${stateDir}/dnsmasq.json ${stateDir}/caddy.json 2>/dev/null || true`
 }

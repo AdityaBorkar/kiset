@@ -1,17 +1,32 @@
 import { $ } from "bun"
 
+import { CADDY_PORT, DNSMASQ_PORT, PATHS } from "#/utils/constants"
 import {
 	checkDnsHealth,
 	checkHttpHealth,
 	readPidWithBackwardsCompat,
 	type ServiceStatus
-} from "#/utils"
-import { SERVICES } from "./shared"
+} from "../utils"
 
 export async function status(verbose: boolean = false) {
+	const services = [
+		{
+			name: "dnsmasq",
+			pidPath: PATHS.DNSMASQ_PID,
+			port: DNSMASQ_PORT,
+			statePath: PATHS.DNSMASQ_STATE
+		},
+		{
+			name: "caddy",
+			pidPath: PATHS.CADDY_PID,
+			port: CADDY_PORT,
+			statePath: PATHS.CADDY_STATE
+		}
+	]
+
 	const results: ServiceStatus[] = []
 
-	for (const service of SERVICES) {
+	for (const service of services) {
 		const pid = await readPidWithBackwardsCompat(
 			service.statePath,
 			service.pidPath

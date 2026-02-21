@@ -1,6 +1,6 @@
 import { $, file } from "bun"
 
-import { getLocalportConfigDir } from "#/utils"
+import { getPaths } from "#/utils"
 import { DNSMASQ_PORT } from "#/utils/constants"
 import { logger } from "#/utils/logger"
 
@@ -167,10 +167,12 @@ async function addCaddyRoutes(
 }
 
 async function getDnsmasqDomains(): Promise<Set<string>> {
-	const configDir = getLocalportConfigDir()
-	const configFile = file(`${configDir}/dnsmasq.conf`)
+	const paths = getPaths()
+	const configFile = file(paths.dnsmasq_config)
 
-	if (!(await configFile.exists())) return new Set()
+	if (!(await configFile.exists())) {
+		return new Set()
+	}
 
 	try {
 		const content = await configFile.text()
@@ -188,8 +190,8 @@ async function getDnsmasqDomains(): Promise<Set<string>> {
 }
 
 async function writeDnsmasqConfig(domains: Set<string>): Promise<void> {
-	const configDir = getLocalportConfigDir()
-	const configFile = file(`${configDir}/dnsmasq.conf`)
+	const paths = getPaths()
+	const configFile = file(paths.dnsmasq_config)
 
 	const lines = [
 		`address=/local/127.0.0.1`,

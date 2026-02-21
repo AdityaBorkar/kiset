@@ -1,6 +1,6 @@
 import { file } from "bun"
 
-import { getLocalportLogsDir } from "#/utils"
+import { getPaths } from "#/utils"
 
 export interface LogsOptions {
 	follow?: boolean
@@ -73,12 +73,12 @@ async function followLogs(
 
 export async function logs(options?: LogsOptions): Promise<void> {
 	const { service, follow = false, limit = 50 } = options ?? {}
-	const logsDir = getLocalportLogsDir()
+	const paths = getPaths()
 
 	const services = service ? [service] : ["dnsmasq", "caddy"]
 	const logPaths = services.map((svc) => ({
 		name: svc,
-		path: `${logsDir}/${svc}.log`
+		path: `${paths.logs}/${svc}.log`
 	}))
 
 	for (const { path } of logPaths) {

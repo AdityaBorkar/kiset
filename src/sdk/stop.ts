@@ -3,40 +3,56 @@ import { $ } from "bun"
 import ora from "ora"
 
 import {
-	createLockFile,
-	getLocalportStateDir,
+	getPaths,
+	kill_pid,
+	LockFile,
 	readPidWithBackwardsCompat
 } from "#/utils"
-import { SERVICES } from "./shared"
+import { PATHS } from "#/utils/constants"
 
 export async function stop(verbose: boolean = false) {
-	const spinner = verbose ? ora("Stopping localport...").start() : null
-	const stateDir = getLocalportStateDir()
-	const lockFile = createLockFile(`${stateDir}/localport.lock`)
+	// Initialization
+	const paths = getPaths()
+	const spinner = verbose ? ora().start() : null
+	const lockFile = new LockFile(`${paths.state}/localport.lock`)
+	let count = 0
 
-	await lockFile.withLock(async () => {
-		let stoppedCount = 0
+	// Lock to prevent multiple concurrent starts/stops
+	lockFile.acquire()
 
-		for (const service of SERVICES) {
-			const pid = await readPidWithBackwardsCompat(
-				service.statePath,
-				service.pidPath
-			)
-			if (pid) {
-				await $`kill ${pid} 2>/dev/null || true`
-				await $`rm -f ${service.pidPath} ${service.statePath}`
-				stoppedCount++
-			}
+	// Stop `dnsmasq`
+	{
+		if (spinner) spinner.text = "Stopping 'dnsmasq'..."
+		const pid = await readPidWithBackwardsCompat(
+			PATHS.DNSMASQ_STATE,
+			PATHS.DNSMASQ_PID
+		)
+		if (pid) {
+			await kill_pid(pid)
+			await $`rm -f ${PATHS.DNSMASQ_PID} ${PATHS.DNSMASQ_STATE}`
+			count++
 		}
+	}
 
-		if (verbose && spinner) {
-			if (stoppedCount > 0) {
-				spinner.succeed(
-					`Localport stopped. (${stoppedCount} service${stoppedCount > 1 ? "s" : ""})`
-				)
-			} else {
-				spinner.info("No services running.")
-			}
+	// Stop `caddy`
+	{
+		if (spinner) spinner.text = "Stopping 'caddy'..."
+		const pid = await readPidWithBackwardsCompat(
+			PATHS.CADDY_STATE,
+			PATHS.CADDY_PID
+		)
+		if (pid) {
+			await kill_pid(pid)
+			await $`rm -f ${PATHS.CADDY_PID} ${PATHS.CADDY_STATE}`
+			count++
 		}
-	})
+	}
+
+	// Release lock
+	lockFile.release()
+	spinner?.succeed(
+		count > 0
+			? `Localport stopped. (${count} service${count > 1 ? "s" : ""})`
+			: "No services running."
+	)
 }
