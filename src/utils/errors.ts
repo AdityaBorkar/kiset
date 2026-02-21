@@ -1,3 +1,23 @@
+export async function logProcessExit(
+	subprocess: ReturnType<typeof Bun.spawn>,
+	serviceName: string,
+	logFile: string
+) {
+	try {
+		const exitCode = await subprocess.exited
+		const reasons: Record<number, string> = {
+			0: "Exited normally",
+			130: "Interrupted by user (Ctrl+C)",
+			137: "Killed",
+			143: "Stopped via localport stop"
+		}
+		const reason =
+			reasons[exitCode as keyof typeof reasons] ||
+			`Exited with code ${exitCode}`
+		console.error(`${serviceName} ${reason}. See ${logFile} for details.`)
+	} catch {}
+}
+
 export class PlatformNotSupportedError extends Error {
 	constructor(platform: string) {
 		super(`Platform "${platform}" is not supported`)
@@ -24,24 +44,4 @@ export class ServiceStartError extends Error {
 		super(`Failed to start service "${serviceName}": ${reason}`)
 		this.name = "ServiceStartError"
 	}
-}
-
-export async function logProcessExit(
-	subprocess: ReturnType<typeof Bun.spawn>,
-	serviceName: string,
-	logFile: string
-) {
-	try {
-		const exitCode = await subprocess.exited
-		const reasons: Record<number, string> = {
-			0: "Exited normally",
-			130: "Interrupted by user (Ctrl+C)",
-			137: "Killed",
-			143: "Stopped via localport stop"
-		}
-		const reason =
-			reasons[exitCode as keyof typeof reasons] ||
-			`Exited with code ${exitCode}`
-		console.error(`${serviceName} ${reason}. See ${logFile} for details.`)
-	} catch {}
 }

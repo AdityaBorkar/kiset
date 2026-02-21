@@ -1,16 +1,4 @@
-import { getPaths, type Platform } from "."
-
-const paths = getPaths()
-
-export const PATHS = {
-	CADDY_PID: `${paths.state}/caddy.pid`,
-	CADDY_STATE: `${paths.state}/caddy.json`,
-	DNSMASQ_PID: `${paths.state}/dnsmasq.pid`,
-	DNSMASQ_STATE: `${paths.state}/dnsmasq.json`
-}
-
-export const DNSMASQ_PORT = 5353
-export const CADDY_PORT = 8443
+import type { Platform } from "."
 
 export const DNSMASQ_INSTALL_COMMANDS = {
 	arch: "sudo pacman -S --noconfirm dnsmasq",
@@ -21,30 +9,6 @@ export const DNSMASQ_INSTALL_COMMANDS = {
 	manjaro: "sudo pacman -S --noconfirm dnsmasq",
 	rhel: "sudo yum install -y dnsmasq",
 	ubuntu: "sudo apt-get install -y dnsmasq"
-} as Record<Platform, string>
-
-export const DNSMASQ_CONFIG = `
-address=/local/127.0.0.1
-listen-address=127.0.0.1
-cache-size=10000
-bogus-priv
-no-resolv
-log-dhcp
-log-queries
-domain-needed
-server=1.1.1.1
-server=8.8.8.8
-`
-
-export const DNSMASQ_CONFIG_PATHS = {
-	arch: "/etc/dnsmasq.conf",
-	centos: "/etc/dnsmasq.conf",
-	darwin: "/opt/homebrew/etc/dnsmasq.conf",
-	debian: "/etc/dnsmasq.conf",
-	fedora: "/etc/dnsmasq.conf",
-	manjaro: "/etc/dnsmasq.conf",
-	rhel: "/etc/dnsmasq.conf",
-	ubuntu: "/etc/dnsmasq.conf"
 } as Record<Platform, string>
 
 export const CADDY_INSTALL_COMMANDS = {
@@ -58,12 +22,30 @@ export const CADDY_INSTALL_COMMANDS = {
 	ubuntu: "sudo apt-get install -y caddy"
 } as Record<Platform, string>
 
-export const CADDY_CONFIG_PATHS = {
-	arch: "/etc/caddy/Caddyfile",
-	centos: "/etc/caddy/Caddyfile",
-	debian: "/etc/caddy/Caddyfile",
-	fedora: "/etc/caddy/Caddyfile",
-	manjaro: "/etc/caddy/Caddyfile",
-	rhel: "/etc/caddy/Caddyfile",
-	ubuntu: "/etc/caddy/Caddyfile"
-} as Record<Platform, string>
+export const HOSTNAME = "http://127.0.0.1" // TODO: MOVE TO CONFIG
+export const DNSMASQ_PORT = 3355 // TODO: Move to config
+export const CADDY_PORT = 3333 // TODO: Move to config
+
+export const DNSMASQ_CONFIG = (hostname: string, _port: string) => `
+address=/local/${hostname}
+listen-address=${hostname}
+cache-size=10000
+bogus-priv
+no-resolv
+log-dhcp
+log-queries
+domain-needed
+server=1.1.1.1
+server=8.8.8.8
+keep-in-foreground
+` // port=${DNSMASQ_PORT}
+
+export const CADDY_CONFIG = (hostname: string, port: string) => `
+{
+	admin 127.0.0.1:2519
+}
+
+http://localhost:${port} {
+	respond "Localport is working! Use custom .local domains by setting DNS to ${hostname}:${port}"
+}
+`

@@ -34,18 +34,51 @@
  * await logs({ service: "caddy", follow: true })
  * ```
  */
-export { type LogsOptions, logs } from "./sdk/logs"
+export { type LogsOptions, logs } from "./sdk/service.logs"
+export { start } from "./sdk/service.start"
+/**
+ * Checks the status of dnsmasq and Caddy services.
+ *
+ * @param verbose - Show detailed status output (default: false)
+ * @returns Promise resolving to array of service statuses
+ *
+ * @example
+ * ```typescript
+ * const status = await status(true)
+ * console.log(status)
+ * // Output: [{ name: 'dnsmasq', running: true, pid: '12345', port: 5353, healthy: true, ... }]
+ * ```
+ */
+export { status } from "./sdk/service.status"
+/**
+ * Stops dnsmasq and Caddy services.
+ *
+ * @param verbose - Show detailed stop messages (default: false)
+ * @returns Promise that resolves when services are stopped
+ *
+ * @example
+ * ```typescript
+ * await stop(true) // Stop with verbose output
+ * ```
+ */
+export { stop } from "./sdk/service.stop"
+export {
+	GlobalConfigSchema,
+	type GlobalConfigSchemaType,
+	LocalportConfig,
+	type LocalportSchema
+} from "./utils/config"
 export {
 	assignAutoPorts,
 	findAvailablePort,
 	getAssignedPorts,
 	releasePorts
-} from "./sdk/managers/port-manager"
+} from "./utils/port-assignment"
 export {
 	configureCaddyProxy,
 	configureDnsmasq,
 	configureProxy
-} from "./sdk/managers/proxy-manager"
+} from "./utils/proxy"
 /**
  * Service watchdog for monitoring and auto-restarting failed services.
  *
@@ -72,37 +105,4 @@ export {
 	startWatchdog,
 	stopWatchdog,
 	type WatchdogConfig
-} from "./sdk/managers/watchdog"
-export { start } from "./sdk/start"
-/**
- * Checks the status of dnsmasq and Caddy services.
- *
- * @param verbose - Show detailed status output (default: false)
- * @returns Promise resolving to array of service statuses
- *
- * @example
- * ```typescript
- * const status = await status(true)
- * console.log(status)
- * // Output: [{ name: 'dnsmasq', running: true, pid: '12345', port: 5353, healthy: true, ... }]
- * ```
- */
-export { status } from "./sdk/status"
-/**
- * Stops dnsmasq and Caddy services.
- *
- * @param verbose - Show detailed stop messages (default: false)
- * @returns Promise that resolves when services are stopped
- *
- * @example
- * ```typescript
- * await stop(true) // Stop with verbose output
- * ```
- */
-export { stop } from "./sdk/stop"
-export {
-	GlobalConfigSchema,
-	type GlobalConfigSchemaType,
-	LocalportConfig,
-	type LocalportSchema
-} from "./utils/config"
+} from "./utils/watchdog"

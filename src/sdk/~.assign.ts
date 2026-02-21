@@ -1,4 +1,4 @@
-import { readAssignments, writeAssignments } from "./shared"
+import { readAssignments, writeAssignments } from "#/utils/services"
 
 export async function assign(
 	program: string,

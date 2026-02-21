@@ -1,4 +1,4 @@
-import { readAssignments, writeAssignments } from "./shared"
+import { readAssignments, writeAssignments } from "#/utils/services"
 
 export async function rm(
 	program: string,
@@ -24,7 +24,7 @@ export async function rm(
 		}
 	}
 
-	const remainingPorts = existingPorts.filter((p) => !ports.includes(p))
+	const remainingPorts = existingPorts.filter((p: number) => !ports.includes(p))
 
 	if (remainingPorts.length === 0) {
 		delete assignments[program]

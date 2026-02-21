@@ -1,7 +1,8 @@
 import { $, file } from "bun"
 
-import { checkPort, loadGlobalConfig } from "#/utils"
+import { loadGlobalConfig } from "#/utils/config"
 import { logger } from "#/utils/logger"
+import { is_port_available } from "#/utils/port"
 
 type PortAssignments = Record<string, Record<string, number>>
 
@@ -10,17 +11,13 @@ type PortAssignment = {
 	name?: string
 }
 
-const ASSIGNMENTS_FILE = `${
-	// biome-ignore lint/complexity/useLiteralKeys: Required for TypeScript index signature
-	process.env["HOME"] ||
-	// biome-ignore lint/complexity/useLiteralKeys: Required for TypeScript index signature
-	process.env["USERPROFILE"]
-}/.local/state/localport/ports/assignments.json`
-
 async function readAssignments(): Promise<PortAssignments> {
-	const f = file(ASSIGNMENTS_FILE)
+	// biome-ignore lint/complexity/useLiteralKeys: <- Required for TypeScript index signature
+	const home = process.env["HOME"] || process.env["USERPROFILE"]
+	if (!home) return {}
+	const f = file(`${home}/.local/state/localport/ports/assignments.json`)
 	if (!(await f.exists())) {
-		await $`mkdir -p ${ASSIGNMENTS_FILE.split("/").slice(0, -1).join("/")}`
+		await $`mkdir -p ${home}/.local/state/localport/ports`
 		return {}
 	}
 	try {
@@ -31,8 +28,13 @@ async function readAssignments(): Promise<PortAssignments> {
 }
 
 async function writeAssignments(assignments: PortAssignments): Promise<void> {
-	await $`mkdir -p ${ASSIGNMENTS_FILE.split("/").slice(0, -1).join("/")}`
-	await file(ASSIGNMENTS_FILE).write(JSON.stringify(assignments, null, 2))
+	// biome-ignore lint/complexity/useLiteralKeys: <- Required for TypeScript index signature
+	const home = process.env["HOME"] || process.env["USERPROFILE"]
+	if (!home) return
+	await $`mkdir -p ${home}/.local/state/localport/ports`
+	await file(`${home}/.local/state/localport/ports/assignments.json`).write(
+		JSON.stringify(assignments, null, 2)
+	)
 }
 
 export async function findAvailablePort(
@@ -43,8 +45,8 @@ export async function findAvailablePort(
 	for (let port = startPort; port <= endPort; port++) {
 		if (excludePorts.has(port)) continue
 
-		const inUse = await checkPort(port, "127.0.0.1")
-		if (!inUse) return port
+		const inUse = await is_port_available(port, "127.0.0.1")
+		if (inUse) return port
 	}
 
 	throw new Error(

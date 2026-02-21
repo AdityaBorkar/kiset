@@ -1,4 +1,4 @@
-import { readAssignments } from "./shared"
+import { readAssignments } from "#/utils/services"
 
 export async function list(
 	program?: string

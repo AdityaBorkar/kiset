@@ -4,11 +4,10 @@ import ora from "ora"
 
 import {
 	getPaths,
-	kill_pid,
+	kill_process,
 	LockFile,
 	readPidWithBackwardsCompat
 } from "#/utils"
-import { PATHS } from "#/utils/constants"
 
 export async function stop(verbose: boolean = false) {
 	// Initialization
@@ -24,12 +23,12 @@ export async function stop(verbose: boolean = false) {
 	{
 		if (spinner) spinner.text = "Stopping 'dnsmasq'..."
 		const pid = await readPidWithBackwardsCompat(
-			PATHS.DNSMASQ_STATE,
-			PATHS.DNSMASQ_PID
+			paths.dnsmasq_state,
+			paths.dnsmasq_pid
 		)
 		if (pid) {
-			await kill_pid(pid)
-			await $`rm -f ${PATHS.DNSMASQ_PID} ${PATHS.DNSMASQ_STATE}`
+			await kill_process(pid)
+			await $`rm -f ${paths.dnsmasq_pid} ${paths.dnsmasq_state}`
 			count++
 		}
 	}
@@ -38,12 +37,12 @@ export async function stop(verbose: boolean = false) {
 	{
 		if (spinner) spinner.text = "Stopping 'caddy'..."
 		const pid = await readPidWithBackwardsCompat(
-			PATHS.CADDY_STATE,
-			PATHS.CADDY_PID
+			paths.caddy_state,
+			paths.caddy_pid
 		)
 		if (pid) {
-			await kill_pid(pid)
-			await $`rm -f ${PATHS.CADDY_PID} ${PATHS.CADDY_STATE}`
+			await kill_process(pid)
+			await $`rm -f ${paths.caddy_pid} ${paths.caddy_state}`
 			count++
 		}
 	}

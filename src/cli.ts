@@ -3,11 +3,11 @@
 import { Command } from "commander"
 
 import { list } from "#/sdk/list"
-import { logs } from "#/sdk/logs"
 import { executeCommand } from "#/sdk/run"
-import { start } from "#/sdk/start"
-import { status } from "#/sdk/status"
-import { stop } from "#/sdk/stop"
+import { logs } from "#/sdk/service.logs"
+import { start } from "#/sdk/service.start"
+import { status } from "#/sdk/service.status"
+import { stop } from "#/sdk/service.stop"
 import { cleanupPidFiles } from "#/utils/config"
 import { type LogLevel, logger, setLogLevel } from "#/utils/logger"
 

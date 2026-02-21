@@ -1,9 +1,10 @@
 import { $, file } from "bun"
 
-import { getPaths } from "#/utils"
-import { CADDY_PORT, DNSMASQ_PORT, PATHS } from "#/utils/constants"
+import { CADDY_PORT, DNSMASQ_PORT } from "./constants.ts"
+import { getPaths } from "./paths.ts"
 
-export const PORTS_DIR = getPaths().ports
+const paths = getPaths()
+export const PORTS_DIR = paths.ports
 export const ASSIGNMENTS_FILE = `${PORTS_DIR}/assignments.json`
 
 export type Assignments = Record<string, number[]>
@@ -18,17 +19,60 @@ export type ServiceInfo = {
 export const SERVICES: ServiceInfo[] = [
 	{
 		name: "dnsmasq",
-		pidPath: PATHS.DNSMASQ_PID,
+		pidPath: paths.dnsmasq_pid,
 		port: DNSMASQ_PORT,
-		statePath: PATHS.DNSMASQ_STATE
+		statePath: paths.dnsmasq_state
 	},
 	{
 		name: "caddy",
-		pidPath: PATHS.CADDY_PID,
+		pidPath: paths.caddy_pid,
 		port: CADDY_PORT,
-		statePath: PATHS.CADDY_STATE
+		statePath: paths.caddy_state
 	}
 ]
+
+export interface ServiceStatus {
+	dnsWorking?: boolean
+	error?: string
+	healthy?: boolean
+	httpWorking?: boolean
+	name: string
+	pid?: string
+	port?: number
+	running: boolean
+}
+
+export interface ServiceState {
+	pid: number
+	port: number
+}
+
+export async function readServiceState(
+	statePath: string
+): Promise<ServiceState | null> {
+	try {
+		const content = await file(statePath).text()
+		const state = JSON.parse(content) as ServiceState
+		return state
+	} catch {
+		return null
+	}
+}
+
+export async function readPidWithBackwardsCompat(
+	statePath: string,
+	pidPath: string
+): Promise<number | null> {
+	const state = await readServiceState(statePath)
+	if (state) return state.pid
+
+	try {
+		const content = await file(pidPath).text()
+		return Number.parseInt(content.trim(), 10)
+	} catch {
+		return null
+	}
+}
 
 export async function readAssignments(): Promise<Assignments> {
 	const f = file(ASSIGNMENTS_FILE)

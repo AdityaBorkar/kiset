@@ -3,7 +3,8 @@ import { $, file } from "bun"
 
 import { type } from "arktype"
 
-import { getLocalportStateDir } from "."
+import { deepMerge } from "./deep-merge.ts"
+import { getPaths } from "./paths.ts"
 
 export const GlobalConfigSchema = type({
 	server: {
@@ -99,6 +100,43 @@ export async function loadConfig(): Promise<LocalportSchema> {
 }
 
 export async function cleanupPidFiles() {
-	const stateDir = getLocalportStateDir()
+	const stateDir = getPaths().state
 	await $`rm -f ${stateDir}/dnsmasq.pid ${stateDir}/caddy.pid ${stateDir}/localport.lock 2>/dev/null || true`
+}
+
+export async function loadGlobalConfig(): Promise<GlobalConfigSchemaType> {
+	const configPath = getPaths().global_config
+	const configFile = file(configPath)
+
+	if (!(await configFile.exists())) {
+		return DEFAULT_GLOBAL_CONFIG
+	}
+
+	const content = await configFile.json()
+	const validated = GlobalConfigSchema(content)
+
+	if ("summary" in validated) {
+		throw new Error(`Invalid global config: ${validated.summary}`)
+	}
+
+	return deepMerge(
+		DEFAULT_GLOBAL_CONFIG,
+		validated as Partial<GlobalConfigSchemaType>
+	)
+}
+
+export async function saveGlobalConfig(
+	config: Partial<GlobalConfigSchemaType>
+): Promise<void> {
+	const configPath = getPaths().global_config
+	const configDir = getPaths().config
+
+	await $`mkdir -p ${configDir}`
+
+	const validated = GlobalConfigSchema(config)
+	if ("summary" in validated) {
+		throw new Error(`Invalid config: ${validated.summary}`)
+	}
+
+	await file(configPath).write(JSON.stringify(validated, null, 2))
 }

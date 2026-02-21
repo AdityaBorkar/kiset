@@ -1,8 +1,8 @@
 import { $, file } from "bun"
 
-import { getPaths } from "#/utils"
 import { DNSMASQ_PORT } from "#/utils/constants"
 import { logger } from "#/utils/logger"
+import { getPaths } from "#/utils/paths"
 
 const CADDY_ADMIN_API = "http://127.0.0.1:2519"
 
@@ -26,11 +26,8 @@ type CaddyConfig = {
 
 async function reloadDnsmasq(): Promise<void> {
 	try {
-		const home =
-			// biome-ignore lint/complexity/useLiteralKeys: Required for TypeScript index signature
-			process.env["HOME"] ||
-			// biome-ignore lint/complexity/useLiteralKeys: Required for TypeScript index signature
-			process.env["USERPROFILE"]
+		// biome-ignore lint/complexity/useLiteralKeys: <- Required for TypeScript index signature
+		const home = process.env["HOME"] || process.env["USERPROFILE"]
 		if (!home) return
 		const pidFile = file(`${home}/.local/state/localport/dnsmasq.pid`)
 		if (await pidFile.exists()) {

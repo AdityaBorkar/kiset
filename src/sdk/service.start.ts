@@ -2,25 +2,21 @@ import { $, write } from "bun"
 
 import ora from "ora"
 
+import { getPaths, getPlatform, isInstalled, LockFile } from "#/utils"
 import {
-	getPaths,
-	getPlatform,
-	isInstalled,
-	LockFile,
-	waitForService
-} from "#/utils"
-import {
+	CADDY_CONFIG,
 	CADDY_INSTALL_COMMANDS,
 	CADDY_PORT,
+	DNSMASQ_CONFIG,
 	DNSMASQ_INSTALL_COMMANDS,
-	DNSMASQ_PORT
+	DNSMASQ_PORT,
+	HOSTNAME
 } from "#/utils/constants"
 import { logProcessExit } from "#/utils/errors"
 import { logger } from "#/utils/logger"
+import { wait_for_process } from "#/utils/process"
+import { cleanupPartialState } from "#/utils/services"
 import { tryCatch } from "#/utils/try-catch"
-import { cleanupPartialState } from "./shared"
-
-const HOSTNAME = "http://127.0.0.1" // TODO: MOVE TO CONFIG
 
 export async function start(
 	detached: boolean = true,
@@ -59,15 +55,7 @@ export async function start(
 		// Configure Service
 		if (spinner) spinner.text = `Configuring 'dnsmasq'...`
 		const config_path = `${paths.config}/dnsmasq.conf`
-		const config = `
-address=/local/127.0.0.1
-port=${DNSMASQ_PORT}
-listen-address=127.0.0.1
-cache-size=10000
-server=1.1.1.1
-server=8.8.8.8
-keep-in-foreground`.trim()
-		await write(config_path, config)
+		await write(config_path, DNSMASQ_CONFIG(HOSTNAME, DNSMASQ_PORT.toString()))
 
 		// Start Service
 		if (spinner) spinner.text = `Starting 'dnsmasq'...`
@@ -85,7 +73,9 @@ keep-in-foreground`.trim()
 
 		// Check if service is ready
 		if (spinner) spinner.text = `Waiting for 'dnsmasq' to be ready...`
-		const { error } = await tryCatch(waitForService(proc.pid, DNSMASQ_PORT))
+		const { error } = await tryCatch(
+			wait_for_process(proc.pid, DNSMASQ_PORT, HOSTNAME)
+		)
 		if (error) {
 			if (spinner) spinner.fail(`'dnsmasq' failed to start: ${error}`)
 			await cleanupPartialState(startedPids, paths.state)
@@ -105,15 +95,7 @@ keep-in-foreground`.trim()
 		// Configure Service
 		if (spinner) spinner.text = `Configuring 'caddy'...`
 		const configPath = `${paths.config}/Caddyfile`
-		const config = `
-{
-	admin 127.0.0.1:2519
-}
-
-http://localhost:${CADDY_PORT} {
-	respond "Localport is working! Use custom .local domains by setting DNS to ${HOSTNAME}:${CADDY_PORT}"
-}`.trim()
-		await write(configPath, config)
+		await write(configPath, CADDY_CONFIG(HOSTNAME, CADDY_PORT.toString()))
 
 		// Start Service
 		if (spinner) spinner.text = `Starting 'caddy'...`
@@ -131,7 +113,9 @@ http://localhost:${CADDY_PORT} {
 
 		// Check if service is ready
 		if (spinner) spinner.text = `Waiting for 'caddy' to be ready...`
-		const { error } = await tryCatch(waitForService(proc.pid, CADDY_PORT))
+		const { error } = await tryCatch(
+			wait_for_process(proc.pid, CADDY_PORT, HOSTNAME)
+		)
 		if (error) {
 			if (spinner) spinner.fail(`'caddy' failed to start: ${error}`)
 			await cleanupPartialState(startedPids, paths.state)

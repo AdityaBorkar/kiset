@@ -1,8 +1,9 @@
 import { $, file } from "bun"
 
-import { checkDnsHealth, checkHttpHealth, getLocalportStateDir } from "#/utils"
+import { checkDnsHealth, checkHttpHealth } from "#/utils/health"
 import { logger } from "#/utils/logger"
-import { SERVICES } from "../shared"
+import { getPaths } from "#/utils/paths"
+import { SERVICES } from "#/utils/services"
 
 export interface WatchdogConfig {
 	checkInterval?: number
@@ -57,7 +58,7 @@ export class ServiceWatchdog {
 	}
 
 	private async checkServices(): Promise<void> {
-		const stateDir = getLocalportStateDir()
+		const stateDir = getPaths().state
 
 		for (const service of SERVICES) {
 			await this.checkService({

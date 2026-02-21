@@ -2,9 +2,9 @@ import { basename } from "node:path"
 
 import { loadConfig } from "#/utils/config"
 import { logger } from "#/utils/logger"
-import { assignAutoPorts } from "./managers/port-manager"
-import { configureProxy } from "./managers/proxy-manager"
-import { status } from "./status"
+import { assignAutoPorts } from "#/utils/port-assignment"
+import { configureProxy } from "#/utils/proxy"
+import { status } from "./service.status"
 
 async function run(
 	command: string,
