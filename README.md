@@ -1,6 +1,6 @@
-# localport
+# kiset
 
-CLI tool for managing local DNS and HTTP services with custom `.local` domains. Localport sets up dnsmasq for DNS resolution and Caddy for serving local content, perfect for development environments and local testing.
+CLI tool for managing local DNS and HTTP services with custom `.local` domains. kiset sets up dnsmasq for DNS resolution and Caddy for serving local content, perfect for development environments and local testing.
 
 ## Features
 
@@ -25,14 +25,14 @@ CLI tool for managing local DNS and HTTP services with custom `.local` domains. 
 ### Install from NPM
 
 ```bash
-bun install -g localport
+bun install -g kiset
 ```
 
 ### Install from Source
 
 ```bash
 git clone <repository-url>
-cd localport
+cd kiset
 bun install
 bun link
 ```
@@ -57,13 +57,13 @@ bun link
 Start dnsmasq (DNS) and Caddy (HTTP) in detached mode:
 
 ```bash
-localport start
+kiset start
 ```
 
 Start in foreground mode (useful for debugging):
 
 ```bash
-localport start --no-detached
+kiset start --no-detached
 ```
 
 **Default Ports:**
@@ -76,7 +76,7 @@ localport start --no-detached
 Stop all running services:
 
 ```bash
-localport stop
+kiset stop
 ```
 
 ### Check Status
@@ -84,7 +84,7 @@ localport stop
 View service status and health:
 
 ```bash
-localport status
+kiset status
 ```
 
 Output example:
@@ -120,13 +120,13 @@ When an error occurs, the CLI will exit with code `1` and print an error message
    - Can be configured for custom domain routing
 
 3. **File Organization**:
-   - Config: `$XDG_CONFIG_HOME/localport/` (default: `~/.config/localport/`)
-   - State: `$XDG_STATE_HOME/localport/` (default: `~/.local/state/localport/`)
-   - Logs: `$XDG_STATE_HOME/localport/logs/`
+   - Config: `$XDG_CONFIG_HOME/kiset/` (default: `~/.config/kiset/`)
+   - State: `$XDG_STATE_HOME/kiset/` (default: `~/.local/state/kiset/`)
+   - Logs: `$XDG_STATE_HOME/kiset/logs/`
 
 ## Configuration
 
-After starting localport, configure your system DNS to use the local DNS server:
+After starting kiset, configure your system DNS to use the local DNS server:
 
 ### macOS
 
@@ -172,7 +172,7 @@ bun test
 ### Project Structure
 
 ```
-localport/
+kiset/
 ├── src/
 │   ├── cli.ts           # CLI entry point and command definitions
 │   ├── constants.ts     # Platform-specific constants and configs
@@ -191,10 +191,10 @@ localport/
 
 ### Programmatic Usage
 
-You can also use localport as a library in your TypeScript/JavaScript projects:
+You can also use kiset as a library in your TypeScript/JavaScript projects:
 
 ```typescript
-import { start, stop, status } from "localport"
+import { start, stop, status } from "kiset"
 
 // Start services
 await start(true, false)
@@ -220,13 +220,13 @@ await stop(true)
 2. View logs:
 
    ```bash
-   tail -f ~/.local/state/localport/logs/dnsmasq.log
-   tail -f ~/.local/state/localport/logs/caddy.log
+   tail -f ~/.local/state/kiset/logs/dnsmasq.log
+   tail -f ~/.local/state/kiset/logs/caddy.log
    ```
 
 ### DNS Not Resolving
 
-1. Verify dnsmasq is running: `localport status`
+1. Verify dnsmasq is running: `kiset status`
 2. Check DNS configuration: `dig @127.0.0.1 -p 5353 test.local`
 3. Ensure system DNS is pointing to `127.0.0.1:5353`
 

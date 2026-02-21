@@ -3,12 +3,13 @@
 import { Command } from "commander"
 
 import { list } from "#/sdk/list"
-import { executeCommand } from "#/sdk/run"
+import { run } from "#/sdk/run"
 import { logs } from "#/sdk/service.logs"
 import { start } from "#/sdk/service.start"
 import { status } from "#/sdk/service.status"
 import { stop } from "#/sdk/service.stop"
-import { cleanupPidFiles } from "#/utils/config"
+import { trust } from "#/sdk/trust"
+import { cleanup, cleanupPidFiles } from "#/utils/config"
 import { type LogLevel, logger, setLogLevel } from "#/utils/logger"
 
 const EXIT_CODES = {
@@ -36,7 +37,7 @@ async function handleGracefulShutdown(signal: NodeJS.Signals) {
 async function handleCrash(error: unknown) {
 	logger.error("\nFatal error occurred:")
 	logger.error(error instanceof Error ? error.message : String(error))
-	await cleanupPidFiles()
+	await cleanup()
 	process.exit(EXIT_CODES.ERROR)
 }
 
@@ -48,8 +49,8 @@ process.on("unhandledRejection", handleCrash)
 const program = new Command()
 
 program
-	.name("localport")
-	.description("CLI for managing localport")
+	.name("kiset")
+	.description("CLI for managing kiset")
 	.version("1.0.0")
 	.option("--json", "Output in JSON format", false)
 	.option(
@@ -76,9 +77,7 @@ program.hook("preAction", () => {
 	}
 })
 
-const service = program
-	.command("service")
-	.description("Manage localport services")
+const service = program.command("service").description("Manage kiset services")
 
 service
 	.command("start")
@@ -162,6 +161,23 @@ service
 			logsOptions.service = serviceTyped
 		}
 		await logs(logsOptions)
+	})
+
+program
+	.command("trust")
+	.description("Trust the local Caddy certificate (for HTTPS)")
+	.action(async () => {
+		await trust()
+		if (jsonOutput) {
+			console.log(
+				JSON.stringify({
+					exitCode: EXIT_CODES.SUCCESS,
+					status: "trusted"
+				})
+			)
+		} else {
+			logger.info("Certificate trusted successfully")
+		}
 	})
 
 program
@@ -253,46 +269,14 @@ program
 // 	})
 
 program
-	.command("exec")
+	.command("run")
 	.argument("<command>", "Command to execute")
 	.argument("[args...]", "Arguments to pass to the command")
 	.description(
 		"Execute a command after validating config and checking service status"
 	)
 	.action(async (command, args) => {
-		const exitCode = await executeCommand(command, args)
-		process.exit(exitCode)
-	})
-
-program
-	.command("run")
-	.description("Execute a command with localport services running")
-	.allowUnknownOption()
-	.allowExcessArguments()
-	.action(async () => {
-		const runIndex = process.argv.indexOf("run")
-		const dashIndex = process.argv.indexOf("--", runIndex)
-
-		if (dashIndex === -1 || dashIndex >= process.argv.length - 1) {
-			logger.error("Usage: localport run -- <command> [args...]")
-			process.exit(EXIT_CODES.USAGE)
-		}
-
-		const commandArgs = process.argv.slice(dashIndex + 1)
-		const command = commandArgs[0]
-		const args = commandArgs.slice(1)
-
-		if (!command) {
-			logger.error("Usage: localport run -- <command> [args...]")
-			process.exit(EXIT_CODES.USAGE)
-		}
-
-		const options = program.opts()
-		if (options["log-level"] !== undefined) {
-			setLogLevel(options["log-level"] as LogLevel)
-		}
-
-		const exitCode = await executeCommand(command, args)
+		const exitCode = await run(command, args)
 		process.exit(exitCode)
 	})
 

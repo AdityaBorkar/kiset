@@ -1,78 +1,63 @@
-import { $ } from "bun"
+import { file } from "bun"
 
-import { CADDY_PORT, DNSMASQ_PORT } from "#/utils/constants"
+import ora from "ora"
+
 import {
-	checkDnsHealth,
-	checkHttpHealth,
-	getPaths,
-	readPidWithBackwardsCompat,
+	CADDY_PORT,
+	is_process_running,
+	LOCKFILE,
+	PATHS,
 	type ServiceStatus
-} from "../utils"
+} from "#/utils"
 
 export async function status(verbose: boolean = false) {
-	const paths = getPaths()
-	const services = [
-		{
-			name: "dnsmasq",
-			pidPath: paths.dnsmasq_pid,
-			port: DNSMASQ_PORT,
-			statePath: paths.dnsmasq_state
-		},
-		{
-			name: "caddy",
-			pidPath: paths.caddy_pid,
-			port: CADDY_PORT,
-			statePath: paths.caddy_state
-		}
-	]
+	// Initialization
+	const results: Record<string, ServiceStatus> = {}
 
-	const results: ServiceStatus[] = []
+	// Lock to prevent multiple concurrent starts/stops
+	LOCKFILE.acquire()
 
-	for (const service of services) {
-		const pid = await readPidWithBackwardsCompat(
-			service.statePath,
-			service.pidPath
-		)
-
-		if (pid) {
-			const isRunning = await $`kill -0 ${pid} 2>/dev/null`
-				.quiet()
-				.then(() => true)
-				.catch(() => false)
-
-			if (isRunning) {
-				const { working, error } =
-					service.name === "dnsmasq"
-						? await checkDnsHealth(service.port)
-						: await checkHttpHealth(service.port)
-
-				results.push({
-					healthy: working,
-					name: service.name,
-					pid: String(pid),
-					port: service.port,
-					running: true,
-					...(service.name === "dnsmasq"
-						? { dnsWorking: working }
-						: { httpWorking: working }),
-					...(error ? { error } : {})
-				})
-
-				if (verbose) {
-					const healthText = working ? "healthy" : `unhealthy (${error})`
-					console.log(
-						`${service.name.padEnd(8)} ${working ? "✓" : "✗"} running (PID: ${pid}, Port: ${service.port}) - ${healthText}`
-					)
-				}
-			} else {
-				results.push({ name: service.name, running: false })
-				if (verbose) console.log(`${service.name.padEnd(8)} stopped`)
+	// Check `caddy` status
+	{
+		const spinner = verbose ? ora().start() : null
+		if (spinner) spinner.text = `Checking 'caddy' status...`
+		const state = await file(PATHS.CADDY_STATE).json()
+		const pid = state.pid ?? 0
+		const port = CADDY_PORT // TODO: GET FROM CONFIG
+		const name = "caddy"
+		const running = await is_process_running(pid)
+		if (running) {
+			const { healthy, error } = await checkHttpHealth(port)
+			spinner?.succeed(`'caddy' is running on port ${port} (pid: ${pid})`)
+			if (!healthy) {
+				console.error(`'caddy' health check failed: ${error}`)
 			}
+			results[name] = { error, healthy, name, pid, port, running }
 		} else {
-			results.push({ name: service.name, running: false })
-			if (verbose) console.log(`${service.name.padEnd(8)} stopped`)
+			spinner?.fail(`'caddy' is not running.`)
+			results[name] = { name, running }
 		}
 	}
 
+	// Release lock and print results
+	LOCKFILE.release()
 	return results
+}
+
+async function checkHttpHealth(httpPort: number): Promise<{
+	healthy: boolean
+	error?: string
+}> {
+	try {
+		const response = await fetch(`http://127.0.0.1:${httpPort}`, {
+			method: "GET",
+			signal: AbortSignal.timeout(5000)
+		})
+		if (response.ok) {
+			return { healthy: true }
+		}
+		return { error: `HTTP returned status ${response.status}`, healthy: false }
+	} catch (error) {
+		return { error: `HTTP request failed: ${error}`, healthy: false }
+	}
 }

@@ -3,8 +3,14 @@ import { $, file } from "bun"
 
 import { type } from "arktype"
 
+import { PATHS } from "#/utils/index.ts"
 import { deepMerge } from "./deep-merge.ts"
 import { getPaths } from "./paths.ts"
+
+export const HTTPS = true // TODO: MOVE TO CONFIG
+export const HOSTNAME = "127.0.0.1" // TODO: MOVE TO CONFIG
+export const DNSMASQ_PORT = 53 // TODO: Move to config
+export const CADDY_PORT = HTTPS ? 443 : 80 // TODO: Move to config
 
 export const GlobalConfigSchema = type({
 	server: {
@@ -48,20 +54,20 @@ const ProjectConfigSchema = type({
 	}
 })
 
-export type LocalportSchema = typeof ProjectConfigSchema.infer
+export type KisetConfigSchema = typeof ProjectConfigSchema.infer
 
-export const LocalportConfig = (config: LocalportSchema) => {
+export const defineConfig = (config: KisetConfigSchema) => {
 	const $config = ProjectConfigSchema(config)
 	return $config
 }
 
-export async function loadConfig(): Promise<LocalportSchema> {
-	const configPath = path.join(process.cwd(), "localport.config.ts")
+export async function loadConfig(): Promise<KisetConfigSchema> {
+	const configPath = path.join(process.cwd(), "kiset.config.ts")
 
 	const configFile = file(configPath)
 	if (!(await configFile.exists())) {
 		throw new Error(
-			`Config file not found at ${configPath}. Please create localport.config.ts in the current directory.`
+			`Config file not found at ${configPath}. Please create kiset.config.ts in the current directory.`
 		)
 	}
 
@@ -71,7 +77,7 @@ export async function loadConfig(): Promise<LocalportSchema> {
 		if (!config) {
 			throw new Error("Config file must export a default configuration object.")
 		}
-		const validatedConfig = LocalportConfig(config)
+		const validatedConfig = defineConfig(config)
 
 		if (
 			typeof validatedConfig === "object" &&
@@ -82,7 +88,7 @@ export async function loadConfig(): Promise<LocalportSchema> {
 			throw new Error(`Config validation failed: ${errors.summary}`)
 		}
 
-		return validatedConfig as LocalportSchema
+		return validatedConfig as KisetConfigSchema
 	} catch (error) {
 		if (
 			error instanceof Error &&
@@ -99,13 +105,15 @@ export async function loadConfig(): Promise<LocalportSchema> {
 	}
 }
 
-export async function cleanupPidFiles() {
-	const stateDir = getPaths().state
-	await $`rm -f ${stateDir}/dnsmasq.pid ${stateDir}/caddy.pid ${stateDir}/localport.lock 2>/dev/null || true`
+export async function cleanup(pids: number[] = []) {
+	for (const pid of pids) {
+		await $`kill ${pid} 2>/dev/null || true`.catch(() => {})
+	}
+	await $`rm -f ${PATHS.STATE_DIR} ${PATHS.LOCKFILE} 2>/dev/null || true`
 }
 
 export async function loadGlobalConfig(): Promise<GlobalConfigSchemaType> {
-	const configPath = getPaths().global_config
+	const configPath = getPaths().GLOBAL_CONFIG
 	const configFile = file(configPath)
 
 	if (!(await configFile.exists())) {
@@ -128,8 +136,8 @@ export async function loadGlobalConfig(): Promise<GlobalConfigSchemaType> {
 export async function saveGlobalConfig(
 	config: Partial<GlobalConfigSchemaType>
 ): Promise<void> {
-	const configPath = getPaths().global_config
-	const configDir = getPaths().config
+	const configPath = getPaths().GLOBAL_CONFIG
+	const configDir = getPaths().CONFIG_DIR
 
 	await $`mkdir -p ${configDir}`
 

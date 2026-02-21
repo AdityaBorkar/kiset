@@ -1,6 +1,6 @@
 import { $, file } from "bun"
 
-import { DNSMASQ_PORT } from "#/utils/constants"
+import { DNSMASQ_PORT } from "#/utils"
 import { logger } from "#/utils/logger"
 import { getPaths } from "#/utils/paths"
 
@@ -29,7 +29,7 @@ async function reloadDnsmasq(): Promise<void> {
 		// biome-ignore lint/complexity/useLiteralKeys: <- Required for TypeScript index signature
 		const home = process.env["HOME"] || process.env["USERPROFILE"]
 		if (!home) return
-		const pidFile = file(`${home}/.local/state/localport/dnsmasq.pid`)
+		const pidFile = file(`${home}/.local/state/kiset/dnsmasq.pid`)
 		if (await pidFile.exists()) {
 			const pid = (await pidFile.text()).trim()
 			await $`kill -HUP ${pid}`.quiet()
@@ -64,6 +64,7 @@ async function updateCaddyConfig(config: CaddyConfig): Promise<void> {
 		})
 
 		if (!response.ok) {
+			console.log("Failed Caddy config update response:", await response.text())
 			throw new Error(`Failed to update Caddy config: ${response.statusText}`)
 		}
 

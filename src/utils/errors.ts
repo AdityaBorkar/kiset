@@ -15,6 +15,7 @@ export async function logProcessExit(
 			reasons[exitCode as keyof typeof reasons] ||
 			`Exited with code ${exitCode}`
 		console.error(`${serviceName} ${reason}. See ${logFile} for details.`)
+		process.exit(exitCode)
 	} catch {}
 }
 

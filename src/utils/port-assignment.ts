@@ -15,9 +15,9 @@ async function readAssignments(): Promise<PortAssignments> {
 	// biome-ignore lint/complexity/useLiteralKeys: <- Required for TypeScript index signature
 	const home = process.env["HOME"] || process.env["USERPROFILE"]
 	if (!home) return {}
-	const f = file(`${home}/.local/state/localport/ports/assignments.json`)
+	const f = file(`${home}/.local/state/kiset/ports/assignments.json`)
 	if (!(await f.exists())) {
-		await $`mkdir -p ${home}/.local/state/localport/ports`
+		await $`mkdir -p ${home}/.local/state/kiset/ports`
 		return {}
 	}
 	try {
@@ -31,8 +31,8 @@ async function writeAssignments(assignments: PortAssignments): Promise<void> {
 	// biome-ignore lint/complexity/useLiteralKeys: <- Required for TypeScript index signature
 	const home = process.env["HOME"] || process.env["USERPROFILE"]
 	if (!home) return
-	await $`mkdir -p ${home}/.local/state/localport/ports`
-	await file(`${home}/.local/state/localport/ports/assignments.json`).write(
+	await $`mkdir -p ${home}/.local/state/kiset/ports`
+	await file(`${home}/.local/state/kiset/ports/assignments.json`).write(
 		JSON.stringify(assignments, null, 2)
 	)
 }

@@ -23,6 +23,7 @@
 6. sudo portless trust
 7. Support { post_assignment: allow, deny } in global config
 8. Start the reverse proxy and dnsmasq in a docker instance (and make sure it is fast!)
+9. Husky - link markdown files
 
 routes.json Maps hostnames to ports
 routes.lock Prevents concurrent writes

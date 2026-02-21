@@ -1,4 +1,4 @@
-# Contributing to localport
+# Contributing to kiset
 
 ## Note
 

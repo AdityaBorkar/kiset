@@ -1,6 +1,6 @@
 {
 	"bin": {
-		"localport": "src/cli.ts"
+		"kiset": "src/cli.ts"
 	},
 	"dependencies": {
 		"arktype": "^2.1.29",
@@ -43,7 +43,7 @@
 		"#/*": "./src/*"
 	},
 	"module": "src/index.ts",
-	"name": "@aditya-borkar/localport",
+	"name": "kiset",
 	"peerDependencies": {
 		"typescript": "^5.9.3"
 	},

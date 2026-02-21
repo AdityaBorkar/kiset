@@ -6,7 +6,7 @@ import { assignAutoPorts } from "#/utils/port-assignment"
 import { configureProxy } from "#/utils/proxy"
 import { status } from "./service.status"
 
-async function run(
+async function exec(
 	command: string,
 	args: string[],
 	env: Record<string, string>
@@ -22,10 +22,7 @@ async function run(
 	return proc.exitCode ?? 1
 }
 
-export async function executeCommand(
-	command: string,
-	args: string[]
-): Promise<number> {
+export async function run(command: string, args: string[]): Promise<number> {
 	logger.info("Loading configuration...")
 	const config = await loadConfig()
 
@@ -41,7 +38,7 @@ export async function executeCommand(
 			.join(", ")
 
 		throw new Error(
-			`Localport services not running: ${stoppedServices}. Run \`localport start\` first.`
+			`kiset services not running: ${stoppedServices}. Run \`kiset start\` first.`
 		)
 	}
 
@@ -61,5 +58,5 @@ export async function executeCommand(
 	)
 
 	logger.info(`Executing: ${command} ${args.join(" ")}`)
-	return await run(command, args, env)
+	return await exec(command, args, env)
 }

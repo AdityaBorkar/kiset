@@ -78,7 +78,7 @@ export async function logs(options?: LogsOptions): Promise<void> {
 	const services = service ? [service] : ["dnsmasq", "caddy"]
 	const logPaths = services.map((svc) => ({
 		name: svc,
-		path: `${paths.logs}/${svc}.log`
+		path: `${paths.LOGS_DIR}/${svc}.log`
 	}))
 
 	for (const { path } of logPaths) {
