@@ -1,4 +1,4 @@
-import { LocalportConfig } from "./src/config"
+import { LocalportConfig } from "./src/utils/config"
 
 export default LocalportConfig({
 	ports: {

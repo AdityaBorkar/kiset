@@ -1,4 +1,4 @@
-import { getLocalportStateDir, type PlatformId } from "./utils"
+import { getLocalportStateDir, type PlatformId } from "."
 
 const stateDir = getLocalportStateDir()
 

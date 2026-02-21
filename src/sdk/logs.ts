@@ -1,6 +1,6 @@
 import { file } from "bun"
 
-import { getLocalportLogsDir } from "../utils"
+import { getLocalportLogsDir } from "#/utils"
 
 export interface LogsOptions {
 	follow?: boolean
@@ -8,7 +8,7 @@ export interface LogsOptions {
 	service?: "dnsmasq" | "caddy"
 }
 
-async function readLogsWithPrefix(
+async function tailWithPrefix(
 	logPath: string,
 	prefix: string,
 	lines: number
@@ -32,12 +32,59 @@ async function readLogsWithPrefix(
 	await proc.exited
 }
 
+async function followSingleLog(path: string): Promise<void> {
+	const proc = Bun.spawn(["tail", "-f", path], {
+		stderr: "inherit",
+		stdout: "inherit"
+	})
+	await proc.exited
+}
+
+async function followMultipleLogs(
+	logPaths: Array<{ name: string; path: string }>
+): Promise<void> {
+	const procs = logPaths.map((log) =>
+		Bun.spawn(["tail", "-f", log.path], { stderr: "inherit", stdout: "pipe" })
+	)
+
+	const decoder = new TextDecoder()
+
+	try {
+		while (true) {
+			const results = await Promise.all(
+				procs.map(async (proc) => {
+					const stdout = proc.stdout
+					if (!stdout) return null
+					const reader = stdout.getReader()
+					const result = await reader.read()
+					reader.releaseLock()
+					return { proc, result }
+				})
+			)
+
+			if (results.every((r) => r === null || r.result.done)) break
+
+			for (let i = 0; i < results.length; i++) {
+				const item = results[i]
+				if (!item || item.result.done || !item.result.value) continue
+
+				const text = decoder.decode(item.result.value, { stream: true })
+				const prefix = `[${logPaths[i]?.name}]`
+				for (const line of text.split("\n")) {
+					if (line) console.log(`${prefix} ${line}`)
+				}
+			}
+		}
+	} finally {
+		await Promise.all(procs.map((proc) => proc.exited))
+	}
+}
+
 export async function logs(options?: LogsOptions): Promise<void> {
 	const { service, follow = false, limit = 50 } = options ?? {}
 	const logsDir = getLocalportLogsDir()
 
 	const services = service ? [service] : ["dnsmasq", "caddy"]
-
 	const logPaths = services.map((svc) => ({
 		name: svc,
 		path: `${logsDir}/${svc}.log`
@@ -51,78 +98,20 @@ export async function logs(options?: LogsOptions): Promise<void> {
 
 	if (follow) {
 		if (logPaths.length === 1) {
-			const { path } = logPaths[0]
-			const proc = Bun.spawn(["tail", "-f", path], {
-				stderr: "inherit",
-				stdout: "inherit"
-			})
-			await proc.exited
+			await followSingleLog(logPaths[0]?.path ?? "")
 		} else {
-			const dnsmasqLog = logPaths[0]
-			const caddyLog = logPaths[1]
-			const dnsmasqProc = Bun.spawn(["tail", "-f", dnsmasqLog.path], {
-				stderr: "inherit",
-				stdout: "pipe"
-			})
-			const caddyProc = Bun.spawn(["tail", "-f", caddyLog.path], {
-				stderr: "inherit",
-				stdout: "pipe"
-			})
-
-			const dnsmasqStdout = dnsmasqProc.stdout
-			const caddyStdout = caddyProc.stdout
-
-			if (!dnsmasqStdout || !caddyStdout) {
-				await Promise.all([dnsmasqProc.exited, caddyProc.exited])
-				return
-			}
-
-			const dnsmasqReader = dnsmasqStdout.getReader()
-			const caddyReader = caddyStdout.getReader()
-			const decoder = new TextDecoder()
-
-			try {
-				while (true) {
-					const [
-						{ done: dDone, value: dValue },
-						{ done: cDone, value: cValue }
-					] = await Promise.all([dnsmasqReader.read(), caddyReader.read()])
-
-					if (dDone && cDone) break
-
-					if (!dDone && dValue) {
-						const text = decoder.decode(dValue, { stream: true })
-						for (const line of text.split("\n")) {
-							if (line) console.log(`[dnsmasq] ${line}`)
-						}
-					}
-
-					if (!cDone && cValue) {
-						const text = decoder.decode(cValue, { stream: true })
-						for (const line of text.split("\n")) {
-							if (line) console.log(`[caddy] ${line}`)
-						}
-					}
-				}
-			} finally {
-				dnsmasqReader.releaseLock()
-				caddyReader.releaseLock()
-				await Promise.all([dnsmasqProc.exited, caddyProc.exited])
-			}
+			await followMultipleLogs(logPaths)
 		}
 	} else {
 		if (logPaths.length === 1) {
-			const { path } = logPaths[0]
-			const proc = Bun.spawn(["tail", "-n", `${limit}`, path], {
+			await Bun.spawn(["tail", "-n", `${limit}`, logPaths[0]?.path ?? ""], {
 				stderr: "inherit",
 				stdout: "inherit"
-			})
-			await proc.exited
+			}).exited
 		} else {
-			const dnsmasqLog = logPaths[0]
-			const caddyLog = logPaths[1]
-			await readLogsWithPrefix(dnsmasqLog.path, "[dnsmasq]", limit)
-			await readLogsWithPrefix(caddyLog.path, "[caddy]", limit)
+			for (const item of logPaths) {
+				await tailWithPrefix(item.path, `[${item.name}]`, limit)
+			}
 		}
 	}
 }

@@ -1,7 +1,7 @@
 import { basename } from "node:path"
 
-import { loadConfig } from "../config"
-import { logger } from "../utils/logger"
+import { loadConfig } from "#/utils/config"
+import { logger } from "#/utils/logger"
 import { assignAutoPorts } from "./managers/port-manager"
 import { configureProxy } from "./managers/proxy-manager"
 import { status } from "./status"
@@ -11,16 +11,8 @@ async function run(
 	args: string[],
 	env: Record<string, string>
 ): Promise<number> {
-	const envVars: string[] = []
-	for (const [key, value] of Object.entries(env)) {
-		envVars.push(`${key}=${value}`)
-	}
-
 	const proc = Bun.spawn([command, ...args], {
-		env: {
-			...process.env,
-			...env
-		},
+		env: { ...process.env, ...env },
 		stderr: "inherit",
 		stdin: "inherit",
 		stdout: "inherit"
@@ -61,10 +53,12 @@ export async function executeCommand(
 	logger.info("Configuring DNS and proxy...")
 	await configureProxy(portAssignments)
 
-	const env: Record<string, string> = {}
-	for (const [portKey, portInfo] of Object.entries(portAssignments)) {
-		env[portKey] = String(portInfo.port)
-	}
+	const env = Object.fromEntries(
+		Object.entries(portAssignments).map(([portKey, portInfo]) => [
+			portKey,
+			String(portInfo.port)
+		])
+	)
 
 	logger.info(`Executing: ${command} ${args.join(" ")}`)
 	return await run(command, args, env)

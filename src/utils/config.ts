@@ -1,7 +1,9 @@
 import * as path from "node:path"
-import { file } from "bun"
+import { $, file } from "bun"
 
 import { type } from "arktype"
+
+import { getLocalportStateDir } from "."
 
 export const GlobalConfigSchema = type({
 	server: {
@@ -94,4 +96,9 @@ export async function loadConfig(): Promise<LocalportSchema> {
 
 		throw new Error("Failed to load config: Unknown error")
 	}
+}
+
+export async function cleanupPidFiles() {
+	const stateDir = getLocalportStateDir()
+	await $`rm -f ${stateDir}/dnsmasq.pid ${stateDir}/caddy.pid ${stateDir}/localport.lock 2>/dev/null || true`
 }

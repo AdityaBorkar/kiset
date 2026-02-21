@@ -1,8 +1,8 @@
 import { $, file } from "bun"
 
-import { DNSMASQ_PORT } from "../../constants"
-import { getLocalportConfigDir } from "../../utils"
-import { logger } from "../../utils/logger"
+import { getLocalportConfigDir } from "#/utils"
+import { DNSMASQ_PORT } from "#/utils/constants"
+import { logger } from "#/utils/logger"
 
 const CADDY_ADMIN_API = "http://127.0.0.1:2519"
 
@@ -42,9 +42,7 @@ type CaddyConfig = {
 async function reloadDnsmasq(): Promise<void> {
 	try {
 		const home = process.env["HOME"] || process.env["USERPROFILE"]
-		if (!home) {
-			return
-		}
+		if (!home) return
 		const pidFile = file(`${home}/.local/state/localport/dnsmasq.pid`)
 		if (await pidFile.exists()) {
 			const pid = (await pidFile.text()).trim()
@@ -56,9 +54,7 @@ async function reloadDnsmasq(): Promise<void> {
 async function getCaddyConfig(): Promise<CaddyConfig | null> {
 	try {
 		const response = await fetch(`${CADDY_ADMIN_API}/config/`, {
-			headers: {
-				"Content-Type": "application/json"
-			},
+			headers: { "Content-Type": "application/json" },
 			method: "GET"
 		})
 
@@ -77,9 +73,7 @@ async function updateCaddyConfig(config: CaddyConfig): Promise<void> {
 	try {
 		const response = await fetch(`${CADDY_ADMIN_API}/config/`, {
 			body: JSON.stringify(config, null, 2),
-			headers: {
-				"Content-Type": "application/json"
-			},
+			headers: { "Content-Type": "application/json" },
 			method: "POST"
 		})
 
@@ -94,39 +88,34 @@ async function updateCaddyConfig(config: CaddyConfig): Promise<void> {
 	}
 }
 
+function ensureCaddyHttpServer(config: CaddyConfig): CaddyServer {
+	if (!config.apps) config.apps = {}
+	if (!config.apps.http) config.apps.http = { servers: {} }
+	if (!config.apps.http.servers) config.apps.http.servers = {}
+	if (!config.apps.http.servers.srv0) config.apps.http.servers.srv0 = {}
+	return config.apps.http.servers.srv0
+}
+
 async function removeCaddyRoutes(domains: string[]): Promise<void> {
 	try {
 		const config = await getCaddyConfig()
-		if (!config) {
-			return
-		}
+		if (!config) return
 
-		const routes = config?.apps?.http?.servers?.srv0?.routes || []
-		const updatedRoutes = routes.filter((route: CaddyRoute) => {
-			const matchHosts =
-				route?.match?.flatMap((m: CaddyMatch) => m?.host || []) || []
+		const server = config?.apps?.http?.servers?.srv0
+		if (!server?.routes) return
+
+		const updatedRoutes = server.routes.filter((route) => {
+			const matchHosts = route?.match?.flatMap((m) => m?.host || []) || []
 			return !domains.some((domain) => matchHosts.includes(domain))
 		})
 
-		if (routes.length !== updatedRoutes.length) {
-			if (!config.apps) {
-				config.apps = {}
-			}
-			if (!config.apps.http) {
-				config.apps.http = {}
-			}
-			if (!config.apps.http.servers) {
-				config.apps.http.servers = {}
-			}
-			if (!config.apps.http.servers.srv0) {
-				config.apps.http.servers.srv0 = {}
-			}
-			config.apps.http.servers.srv0.routes = updatedRoutes
-			await updateCaddyConfig(config)
-			logger.info(
-				`Removed ${routes.length - updatedRoutes.length} old routes from Caddy`
-			)
-		}
+		if (server.routes.length === updatedRoutes.length) return
+
+		ensureCaddyHttpServer(config).routes = updatedRoutes
+		await updateCaddyConfig(config)
+		logger.info(
+			`Removed ${server.routes.length - updatedRoutes.length} old routes from Caddy`
+		)
 	} catch (error) {
 		logger.warn(`Failed to remove old Caddy routes: ${error}`)
 	}
@@ -142,32 +131,16 @@ async function addCaddyRoutes(
 			return
 		}
 
-		if (!config.apps) {
-			config.apps = {}
-		}
-		if (!config.apps.http) {
-			config.apps.http = { servers: { srv0: { listen: [":80"] } } }
-		}
-		if (!config.apps.http.servers) {
-			config.apps.http.servers = { srv0: { listen: [":80"] } }
-		}
-		if (!config.apps.http.servers.srv0) {
-			config.apps.http.servers.srv0 = { listen: [":80"] }
-		}
-		if (!config.apps.http.servers.srv0.routes) {
-			config.apps.http.servers.srv0.routes = []
-		}
-
-		const existingRoutes = config.apps.http.servers.srv0.routes
+		const server = ensureCaddyHttpServer(config)
+		const existingRoutes = server.routes || []
 		const newRoutes: CaddyRoute[] = []
 
 		for (const mapping of mappings) {
 			const domains = [`${mapping.domain}.local`, `${mapping.domain}.localhost`]
 
 			for (const domain of domains) {
-				const existingRoute = existingRoutes.find((route: CaddyRoute) => {
-					const matchHosts =
-						route?.match?.flatMap((m: CaddyMatch) => m?.host || []) || []
+				const existingRoute = existingRoutes.find((route) => {
+					const matchHosts = route?.match?.flatMap((m) => m?.host || []) || []
 					return matchHosts.includes(domain)
 				})
 
@@ -185,11 +158,11 @@ async function addCaddyRoutes(
 			}
 		}
 
-		if (newRoutes.length > 0) {
-			config.apps.http.servers.srv0.routes = [...existingRoutes, ...newRoutes]
-			await updateCaddyConfig(config)
-			logger.info(`Added ${newRoutes.length} new routes to Caddy`)
-		}
+		if (newRoutes.length === 0) return
+
+		server.routes = [...existingRoutes, ...newRoutes]
+		await updateCaddyConfig(config)
+		logger.info(`Added ${newRoutes.length} new routes to Caddy`)
 	} catch (error) {
 		logger.error(`Failed to add Caddy routes: ${error}`)
 		throw error
@@ -200,20 +173,15 @@ async function getDnsmasqDomains(): Promise<Set<string>> {
 	const configDir = getLocalportConfigDir()
 	const configFile = file(`${configDir}/dnsmasq.conf`)
 
-	if (!(await configFile.exists())) {
-		return new Set()
-	}
+	if (!(await configFile.exists())) return new Set()
 
 	try {
 		const content = await configFile.text()
-		const lines = content.split("\n")
 		const domains = new Set<string>()
 
-		for (const line of lines) {
+		for (const line of content.split("\n")) {
 			const match = line.match(/^address=\/(.+?)\/127\.0\.0\.1$/)
-			if (match?.[1]) {
-				domains.add(match[1])
-			}
+			if (match?.[1]) domains.add(match[1])
 		}
 
 		return domains
@@ -233,12 +201,9 @@ async function writeDnsmasqConfig(domains: Set<string>): Promise<void> {
 		`cache-size=10000`,
 		`server=1.1.1.1`,
 		`server=8.8.8.8`,
-		`keep-in-foreground`
+		`keep-in-foreground`,
+		...Array.from(domains).map((domain) => `address=/${domain}/127.0.0.1`)
 	]
-
-	for (const domain of domains) {
-		lines.push(`address=/${domain}/127.0.0.1`)
-	}
 
 	await configFile.write(lines.join("\n"))
 }

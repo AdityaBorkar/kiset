@@ -1,6 +1,6 @@
 import { $, file } from "bun"
 
-import { getLocalportPortsDir } from "../utils"
+import { getLocalportPortsDir } from "#/utils"
 
 const PORTS_DIR = getLocalportPortsDir()
 const ASSIGNMENTS_FILE = `${PORTS_DIR}/assignments.json`
@@ -36,24 +36,22 @@ export async function assign(
 		}
 	}
 
-	const usedPorts = new Set<number>()
-	for (const [prog, progPorts] of Object.entries(assignments)) {
-		if (prog !== program) {
-			for (const p of progPorts) {
-				usedPorts.add(p)
-			}
-		}
+	const usedPorts = new Set(
+		Object.entries(assignments)
+			.filter(([prog]) => prog !== program)
+			.flatMap(([, progPorts]) => progPorts)
+	)
+
+	const duplicatePorts = ports.filter((p) => usedPorts.has(p))
+	if (duplicatePorts.length > 0) {
+		throw new Error(
+			`Port${duplicatePorts.length > 1 ? "s" : ""} ${duplicatePorts.join(", ")} ${duplicatePorts.length > 1 ? "are" : "is"} already assigned to another program`
+		)
 	}
 
-	for (const port of ports) {
-		if (usedPorts.has(port)) {
-			throw new Error(`Port ${port} is already assigned to another program`)
-		}
-	}
-
-	const existingPorts = assignments[program] || []
-	const newPortsSet = new Set([...existingPorts, ...ports])
-	const finalPorts = Array.from(newPortsSet).sort((a, b) => a - b)
+	const finalPorts = Array.from(
+		new Set([...(assignments[program] || []), ...ports])
+	).sort((a, b) => a - b)
 
 	assignments[program] = finalPorts
 	await writeAssignments(assignments)

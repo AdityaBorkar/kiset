@@ -1,8 +1,7 @@
-import * as net from "node:net"
 import { $, file } from "bun"
 
-import { loadGlobalConfig } from "../../utils"
-import { logger } from "../../utils/logger"
+import { checkPort, loadGlobalConfig } from "#/utils"
+import { logger } from "#/utils/logger"
 
 const ASSIGNMENTS_FILE = `${process.env["HOME"] || process.env["USERPROFILE"]}/.local/state/localport/ports/assignments.json`
 
@@ -11,31 +10,6 @@ type PortAssignments = Record<string, Record<string, number>>
 type PortAssignment = {
 	port: number
 	name?: string
-}
-
-async function checkPort(port: number, host: string): Promise<boolean> {
-	return new Promise((resolve) => {
-		const socket = new net.Socket()
-
-		socket.setTimeout(100)
-
-		socket.on("connect", () => {
-			socket.destroy()
-			resolve(true)
-		})
-
-		socket.on("timeout", () => {
-			socket.destroy()
-			resolve(false)
-		})
-
-		socket.on("error", () => {
-			socket.destroy()
-			resolve(false)
-		})
-
-		socket.connect(port, host)
-	})
 }
 
 async function readAssignments(): Promise<PortAssignments> {
@@ -62,14 +36,10 @@ export async function findAvailablePort(
 	excludePorts: Set<number>
 ): Promise<number> {
 	for (let port = startPort; port <= endPort; port++) {
-		if (excludePorts.has(port)) {
-			continue
-		}
+		if (excludePorts.has(port)) continue
 
 		const inUse = await checkPort(port, "127.0.0.1")
-		if (!inUse) {
-			return port
-		}
+		if (!inUse) return port
 	}
 
 	throw new Error(

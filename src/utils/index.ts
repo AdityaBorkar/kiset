@@ -6,7 +6,7 @@ import {
 	DEFAULT_GLOBAL_CONFIG,
 	GlobalConfigSchema,
 	type GlobalConfigSchemaType
-} from "../config.ts"
+} from "./config.ts"
 import { deepMerge } from "./merge.ts"
 
 export function getXdgConfigDir(): string {
@@ -143,6 +143,38 @@ export interface ServiceStatus {
 	running: boolean
 }
 
+export interface ServiceState {
+	pid: number
+	port: number
+}
+
+export async function readServiceState(
+	statePath: string
+): Promise<ServiceState | null> {
+	try {
+		const content = await file(statePath).text()
+		const state = JSON.parse(content) as ServiceState
+		return state
+	} catch {
+		return null
+	}
+}
+
+export async function readPidWithBackwardsCompat(
+	statePath: string,
+	pidPath: string
+): Promise<number | null> {
+	const state = await readServiceState(statePath)
+	if (state) return state.pid
+
+	try {
+		const content = await file(pidPath).text()
+		return Number.parseInt(content.trim(), 10)
+	} catch {
+		return null
+	}
+}
+
 export async function checkDnsHealth(dnsPort: number): Promise<{
 	working: boolean
 	error?: string
@@ -190,7 +222,7 @@ export async function isProcessRunning(pid: number): Promise<boolean> {
 	}
 }
 
-async function checkPort(port: number, host: string): Promise<boolean> {
+export async function checkPort(port: number, host: string): Promise<boolean> {
 	return new Promise((resolve) => {
 		const socket = new net.Socket()
 

@@ -39,6 +39,9 @@
 		"CHANGELOG.md",
 		"package.json"
 	],
+	"imports": {
+		"#/*": "./src/*"
+	},
 	"module": "src/index.ts",
 	"name": "@aditya-borkar/localport",
 	"peerDependencies": {

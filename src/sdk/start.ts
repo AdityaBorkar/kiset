@@ -3,13 +3,6 @@ import { $, write } from "bun"
 import ora from "ora"
 
 import {
-	CADDY_INSTALL_COMMANDS,
-	CADDY_PORT,
-	DNSMASQ_INSTALL_COMMANDS,
-	DNSMASQ_PORT,
-	PATHS
-} from "../constants"
-import {
 	createLockFile,
 	getLocalportConfigDir,
 	getLocalportLogsDir,
@@ -18,7 +11,14 @@ import {
 	install,
 	isInstalled,
 	waitForService
-} from "../utils"
+} from "#/utils"
+import {
+	CADDY_INSTALL_COMMANDS,
+	CADDY_PORT,
+	DNSMASQ_INSTALL_COMMANDS,
+	DNSMASQ_PORT,
+	PATHS
+} from "#/utils/constants"
 
 async function cleanupPartialState(pids: number[], stateDir: string) {
 	for (const pid of pids) {
@@ -45,22 +45,72 @@ async function logProcessExit(
 ) {
 	try {
 		const exitCode = await subprocess.exited
-		let reason: string
-
-		if (exitCode === 143) {
-			reason = "Stopped via localport stop"
-		} else if (exitCode === 130) {
-			reason = "Interrupted by user (Ctrl+C)"
-		} else if (exitCode === 137) {
-			reason = "Killed"
-		} else if (exitCode === 0) {
-			reason = "Exited normally"
-		} else {
-			reason = `Exited with code ${exitCode}`
+		const reasons: Record<number, string> = {
+			0: "Exited normally",
+			130: "Interrupted by user (Ctrl+C)",
+			137: "Killed",
+			143: "Stopped via localport stop"
 		}
-
+		const reason =
+			reasons[exitCode as keyof typeof reasons] ||
+			`Exited with code ${exitCode}`
 		console.error(`${serviceName} ${reason}. See ${logFile} for details.`)
 	} catch {}
+}
+
+type ServiceConfig = {
+	name: string
+	configFile: string
+	configContent: string
+	command: string[]
+	port: number
+	statePath: string
+}
+
+async function startService(
+	configDir: string,
+	detached: boolean,
+	logsDir: string,
+	serviceConfig: ServiceConfig,
+	verbose: boolean,
+	startedPids: number[],
+	stateDir: string
+) {
+	const spinner = verbose
+		? ora(`Configuring ${serviceConfig.name}...`).start()
+		: null
+
+	await write(
+		`${configDir}/${serviceConfig.configFile}`,
+		serviceConfig.configContent
+	)
+
+	if (spinner) spinner.text = `Starting ${serviceConfig.name}...`
+
+	const logFile = `${logsDir}/${serviceConfig.name}.log`
+	const proc = Bun.spawn(serviceConfig.command, {
+		detached,
+		stderr: Bun.file(logFile),
+		stdout: Bun.file(logFile)
+	})
+	await writeStateFile(serviceConfig.statePath, proc.pid, serviceConfig.port)
+	logProcessExit(proc, serviceConfig.name, logFile)
+
+	if (spinner) spinner.text = `Waiting for ${serviceConfig.name} to be ready...`
+
+	try {
+		await waitForService(proc.pid, serviceConfig.port)
+		startedPids.push(proc.pid)
+		if (spinner) {
+			spinner.succeed(
+				`${serviceConfig.name} started on http://127.0.0.1:${serviceConfig.port} (PID: ${proc.pid})`
+			)
+		}
+	} catch (error) {
+		if (spinner) spinner.fail(`${serviceConfig.name} failed to start: ${error}`)
+		await cleanupPartialState(startedPids, stateDir)
+		throw error
+	}
 }
 
 export async function start(
@@ -75,176 +125,77 @@ export async function start(
 	const startedPids: number[] = []
 
 	await lockFile.withLock(async () => {
-		if (verbose) {
-			const $dnsmasq_install = ora("Installing dnsmasq...").start()
-			if (await isInstalled("dnsmasq")) {
-				$dnsmasq_install.succeed("dnsmasq is already installed.")
-			} else {
-				const command = DNSMASQ_INSTALL_COMMANDS[platformId]
-				await install({ command, label: "dnsmasq", verbose })
-				$dnsmasq_install.succeed("dnsmasq installed successfully.")
-			}
-
-			const $caddy_install = ora("Installing caddy...").start()
-			if (await isInstalled("caddy")) {
-				$caddy_install.succeed("caddy is already installed.")
-			} else {
-				const command = CADDY_INSTALL_COMMANDS[platformId]
-				await install({ command, label: "caddy", verbose })
-				$caddy_install.succeed("caddy installed successfully.")
-			}
-		} else {
-			if (!(await isInstalled("dnsmasq"))) {
-				const command = DNSMASQ_INSTALL_COMMANDS[platformId]
-				await install({ command, label: "dnsmasq", verbose })
-			}
-			if (!(await isInstalled("caddy"))) {
-				const command = CADDY_INSTALL_COMMANDS[platformId]
-				await install({ command, label: "caddy", verbose })
+		for (const [name, installCommands] of [
+			["dnsmasq", DNSMASQ_INSTALL_COMMANDS],
+			["caddy", CADDY_INSTALL_COMMANDS]
+		] as const) {
+			if (verbose) {
+				const spinner = ora(`Installing ${name}...`).start()
+				if (await isInstalled(name)) {
+					spinner.succeed(`${name} is already installed.`)
+				} else {
+					const command = installCommands[platformId]
+					await install({ command, label: name, verbose })
+					spinner.succeed(`${name} installed successfully.`)
+				}
+			} else if (!(await isInstalled(name))) {
+				const command = installCommands[platformId]
+				await install({ command, label: name, verbose })
 			}
 		}
 
 		await $`mkdir -p ${configDir} ${stateDir} ${logsDir}`
 
-		if (verbose) {
-			const $dnsmasq_start = ora("Configuring dnsmasq...").start()
-			const dnsmasq_config = `
-address=/local/127.0.0.1
+		const dnsmasqConfig = `address=/local/127.0.0.1
 port=${DNSMASQ_PORT}
 listen-address=127.0.0.1
 cache-size=10000
 server=1.1.1.1
 server=8.8.8.8
-keep-in-foreground
-`.trim()
-			await write(`${configDir}/dnsmasq.conf`, dnsmasq_config)
+keep-in-foreground`.trim()
 
-			$dnsmasq_start.text = "Starting dnsmasq..."
-			const dnsmasq_log = `${logsDir}/dnsmasq.log`
-			const dnsmasq_proc = Bun.spawn(
-				["dnsmasq", "-C", `${configDir}/dnsmasq.conf`],
-				{
-					detached,
-					stderr: Bun.file(dnsmasq_log),
-					stdout: Bun.file(dnsmasq_log)
-				}
-			)
-			await writeStateFile(PATHS.DNSMASQ_STATE, dnsmasq_proc.pid, DNSMASQ_PORT)
-			logProcessExit(dnsmasq_proc, "dnsmasq", dnsmasq_log)
-
-			$dnsmasq_start.text = "Waiting for dnsmasq to be ready..."
-			try {
-				await waitForService(dnsmasq_proc.pid, DNSMASQ_PORT)
-				startedPids.push(dnsmasq_proc.pid)
-				$dnsmasq_start.succeed(
-					`dnsmasq started on http://127.0.0.1:${DNSMASQ_PORT} (PID: ${dnsmasq_proc.pid})`
-				)
-			} catch (error) {
-				$dnsmasq_start.fail(`dnsmasq failed to start: ${error}`)
-				await cleanupPartialState(startedPids, stateDir)
-				throw error
-			}
-
-			const $caddy_start = ora("Configuring caddy...").start()
-			const caddy_config = `
-{
+		const caddyConfig = `{
 	admin 127.0.0.1:2519
 }
 
 http://localhost:${CADDY_PORT} {
 	respond "Localport is working! Use custom .local domains by setting DNS to 127.0.0.1:${DNSMASQ_PORT}"
-}
-`.trim()
-			await write(`${configDir}/Caddyfile`, caddy_config)
+}`.trim()
 
-			$caddy_start.text = "Starting caddy..."
-			const caddy_log = `${logsDir}/caddy.log`
-			const caddy_proc = Bun.spawn(
-				["caddy", "run", "--config", `${configDir}/Caddyfile`],
-				{
-					detached,
-					stderr: Bun.file(caddy_log),
-					stdout: Bun.file(caddy_log)
-				}
-			)
-			await writeStateFile(PATHS.CADDY_STATE, caddy_proc.pid, CADDY_PORT)
-			logProcessExit(caddy_proc, "caddy", caddy_log)
+		await startService(
+			configDir,
+			detached,
+			logsDir,
+			{
+				command: ["dnsmasq", "-C", `${configDir}/dnsmasq.conf`],
+				configContent: dnsmasqConfig,
+				configFile: "dnsmasq.conf",
+				name: "dnsmasq",
+				port: DNSMASQ_PORT,
+				statePath: PATHS.DNSMASQ_STATE
+			},
+			verbose,
+			startedPids,
+			stateDir
+		)
 
-			$caddy_start.text = "Waiting for caddy to be ready..."
-			try {
-				await waitForService(caddy_proc.pid, CADDY_PORT)
-				startedPids.push(caddy_proc.pid)
-				$caddy_start.succeed(
-					`caddy started on http://localhost:${CADDY_PORT} (PID: ${caddy_proc.pid})`
-				)
-			} catch (error) {
-				$caddy_start.fail(`caddy failed to start: ${error}`)
-				await cleanupPartialState(startedPids, stateDir)
-				throw error
-			}
-			console.log(`🎉 Localport is running!`)
-		} else {
-			const dnsmasq_config = `
-address=/local/127.0.0.1
-port=${DNSMASQ_PORT}
-listen-address=127.0.0.1
-cache-size=10000
-server=1.1.1.1
-server=8.8.8.8
-keep-in-foreground
-`.trim()
-			await write(`${configDir}/dnsmasq.conf`, dnsmasq_config)
+		await startService(
+			configDir,
+			detached,
+			logsDir,
+			{
+				command: ["caddy", "run", "--config", `${configDir}/Caddyfile`],
+				configContent: caddyConfig,
+				configFile: "Caddyfile",
+				name: "caddy",
+				port: CADDY_PORT,
+				statePath: PATHS.CADDY_STATE
+			},
+			verbose,
+			startedPids,
+			stateDir
+		)
 
-			const dnsmasq_log = `${logsDir}/dnsmasq.log`
-			const dnsmasq_proc = Bun.spawn(
-				["dnsmasq", "-C", `${configDir}/dnsmasq.conf`],
-				{
-					detached,
-					stderr: Bun.file(dnsmasq_log),
-					stdout: Bun.file(dnsmasq_log)
-				}
-			)
-			await writeStateFile(PATHS.DNSMASQ_STATE, dnsmasq_proc.pid, DNSMASQ_PORT)
-			logProcessExit(dnsmasq_proc, "dnsmasq", dnsmasq_log)
-
-			try {
-				await waitForService(dnsmasq_proc.pid, DNSMASQ_PORT)
-				startedPids.push(dnsmasq_proc.pid)
-			} catch (error) {
-				await cleanupPartialState(startedPids, stateDir)
-				throw error
-			}
-
-			const caddy_config = `
-{
-	admin 127.0.0.1:2519
-}
-
-http://localhost:${CADDY_PORT} {
-	respond "Localport is working! Use custom .local domains by setting DNS to 127.0.0.1:${DNSMASQ_PORT}"
-}
-`.trim()
-			await write(`${configDir}/Caddyfile`, caddy_config)
-
-			const caddy_log = `${logsDir}/caddy.log`
-			const caddy_proc = Bun.spawn(
-				["caddy", "run", "--config", `${configDir}/Caddyfile`],
-				{
-					detached,
-					stderr: Bun.file(caddy_log),
-					stdout: Bun.file(caddy_log)
-				}
-			)
-			await writeStateFile(PATHS.CADDY_STATE, caddy_proc.pid, CADDY_PORT)
-			logProcessExit(caddy_proc, "caddy", caddy_log)
-
-			try {
-				await waitForService(caddy_proc.pid, CADDY_PORT)
-				startedPids.push(caddy_proc.pid)
-			} catch (error) {
-				await cleanupPartialState(startedPids, stateDir)
-				throw error
-			}
-		}
+		if (verbose) console.log("🎉 Localport is running!")
 	})
 }

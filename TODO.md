@@ -4,6 +4,7 @@
 
 1. Make it work. Test if installation works of caddy and dnsmasq. If not, ask the user to install. Give them command.
 2. Versioning Script
+      - Write Documentation for the `sdk`
       - Changelog
       - Readme File + Contributing File. Write ARCHITECTURE in CONTRIBUTING.md
       - Versioning

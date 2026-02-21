@@ -1,6 +1,6 @@
 import { file } from "bun"
 
-import { getLocalportPortsDir } from "../utils"
+import { getLocalportPortsDir } from "#/utils"
 
 const PORTS_DIR = getLocalportPortsDir()
 const ASSIGNMENTS_FILE = `${PORTS_DIR}/assignments.json`

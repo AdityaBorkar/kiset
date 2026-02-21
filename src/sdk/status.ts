@@ -1,39 +1,12 @@
-import { $, file } from "bun"
+import { $ } from "bun"
 
-import { CADDY_PORT, DNSMASQ_PORT, PATHS } from "../constants"
-import { checkDnsHealth, checkHttpHealth, type ServiceStatus } from "../utils"
-
-interface ServiceState {
-	pid: number
-	port: number
-}
-
-async function readServiceState(
-	statePath: string
-): Promise<ServiceState | null> {
-	try {
-		const content = await file(statePath).text()
-		const state = JSON.parse(content) as ServiceState
-		return state
-	} catch {
-		return null
-	}
-}
-
-async function readPidWithBackwardsCompat(
-	statePath: string,
-	pidPath: string
-): Promise<number | null> {
-	const state = await readServiceState(statePath)
-	if (state) return state.pid
-
-	try {
-		const content = await file(pidPath).text()
-		return Number.parseInt(content.trim(), 10)
-	} catch {
-		return null
-	}
-}
+import {
+	checkDnsHealth,
+	checkHttpHealth,
+	readPidWithBackwardsCompat,
+	type ServiceStatus
+} from "#/utils"
+import { CADDY_PORT, DNSMASQ_PORT, PATHS } from "#/utils/constants"
 
 export async function status(verbose: boolean = false) {
 	const services = [
@@ -66,35 +39,27 @@ export async function status(verbose: boolean = false) {
 				.catch(() => false)
 
 			if (isRunning) {
-				let healthy = false
-				let error: string | undefined
-
-				if (service.name === "dnsmasq") {
-					const { working, error: err } = await checkDnsHealth(service.port)
-					healthy = working
-					if (!healthy) error = err
-				} else {
-					const { working, error: err } = await checkHttpHealth(service.port)
-					healthy = working
-					if (!healthy) error = err
-				}
+				const { working, error } =
+					service.name === "dnsmasq"
+						? await checkDnsHealth(service.port)
+						: await checkHttpHealth(service.port)
 
 				results.push({
-					healthy,
+					healthy: working,
 					name: service.name,
 					pid: String(pid),
 					port: service.port,
 					running: true,
 					...(service.name === "dnsmasq"
-						? { dnsWorking: healthy }
-						: { httpWorking: healthy }),
+						? { dnsWorking: working }
+						: { httpWorking: working }),
 					...(error ? { error } : {})
 				})
 
 				if (verbose) {
-					const healthText = healthy ? "healthy" : `unhealthy (${error})`
+					const healthText = working ? "healthy" : `unhealthy (${error})`
 					console.log(
-						`${service.name.padEnd(8)} ${healthy ? "✓" : "✗"} running (PID: ${pid}, Port: ${service.port}) - ${healthText}`
+						`${service.name.padEnd(8)} ${working ? "✓" : "✗"} running (PID: ${pid}, Port: ${service.port}) - ${healthText}`
 					)
 				}
 			} else {

@@ -13,12 +13,6 @@
  * ```
  */
 
-export {
-	GlobalConfigSchema,
-	type GlobalConfigSchemaType,
-	LocalportConfig,
-	type LocalportSchema
-} from "./config"
 /**
  * Display logs from dnsmasq and Caddy services.
  *
@@ -106,3 +100,9 @@ export { status } from "./sdk/status"
  * ```
  */
 export { stop } from "./sdk/stop"
+export {
+	GlobalConfigSchema,
+	type GlobalConfigSchemaType,
+	LocalportConfig,
+	type LocalportSchema
+} from "./utils/config"
