@@ -4,23 +4,25 @@ import { getPaths } from "#/utils/paths.ts"
 export const PATHS = getPaths()
 export const LOCKFILE = new LockFile(PATHS.LOCKFILE)
 
-export { cleanup } from "./cleanup.ts"
+export { getGlobalConfig, getProjectConfig } from "./config.ts"
 export { logProcessExit } from "./errors.ts"
 export { getLogLevel, type LogLevel, logger, setLogLevel } from "./logger.ts"
-export { getPlatform, isInstalled, type Platform } from "./platform.ts"
-export { findAvailablePort, getAssignedPorts } from "./port-assignment.ts"
-export { isRunningProcess, killProcess, waitForProcess } from "./process.ts"
+export {
+	assignAutoPorts,
+	findAvailablePort,
+	readAssignments,
+	releasePorts
+} from "./port-assignment.ts"
 export { tryCatch } from "./try-catch.ts"
-
-// export { DNSMASQ_PORT, HOSTNAME } from "./constants.ts"
-// export { retryWithBackoff } from "./retry.ts"
-// export type {
-// 	Assignments,
-// 	ServiceInfo,
-// 	ServiceState,
-// 	ServiceStatus
-// } from "./services.ts"
-// export {
-// 	readAssignments,
-// 	writeAssignments
-// } from "./services.ts"
+export {
+	cleanup,
+	getPlatform,
+	isInstalled,
+	isPortAvailable,
+	isRunningProcess,
+	killProcess,
+	type Platform,
+	SUPPORTED_PLATFORMS,
+	waitForPort,
+	waitForProcess
+} from "./utils.ts"

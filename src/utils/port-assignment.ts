@@ -1,8 +1,8 @@
-import { $, file } from "bun"
+import { file } from "bun"
 
-import { loadGlobalConfig } from "#/utils/config"
+import { isPortAvailable, PATHS } from "#/utils"
+import { getGlobalConfig } from "#/utils/config"
 import { logger } from "#/utils/logger"
-import { is_port_available } from "#/utils/port"
 
 type PortAssignments = Record<string, Record<string, number>>
 
@@ -11,30 +11,45 @@ type PortAssignment = {
 	name?: string
 }
 
-async function readAssignments(): Promise<PortAssignments> {
-	// biome-ignore lint/complexity/useLiteralKeys: <- Required for TypeScript index signature
-	const home = process.env["HOME"] || process.env["USERPROFILE"]
-	if (!home) return {}
-	const f = file(`${home}/.local/state/kiset/ports/assignments.json`)
-	if (!(await f.exists())) {
-		await $`mkdir -p ${home}/.local/state/kiset/ports`
+// export async function readAssignments(): Promise<Assignments> {
+// 	const f = file(ASSIGNMENTS_FILE)
+// 	if (!(await f.exists())) {
+// 		await $`mkdir -p ${PATHS.STATE_DIR}`
+// 		return {}
+// 	}
+// 	return JSON.parse(await f.text())
+// }
+
+// export async function writeAssignments(
+// 	assignments: Assignments
+// ): Promise<void> {
+// 	await $`mkdir -p ${PATHS.STATE_DIR}`
+// 	await file(ASSIGNMENTS_FILE).write(JSON.stringify(assignments, null, 2))
+// }
+
+export async function readAssignments(): Promise<PortAssignments> {
+	const state = file(PATHS.ASSIGNMENTS_STATE)
+	if (!(await state.exists())) {
 		return {}
 	}
-	try {
-		return JSON.parse(await f.text())
-	} catch {
-		return {}
-	}
+	const assignments = state.json()
+	return assignments
 }
 
-async function writeAssignments(assignments: PortAssignments): Promise<void> {
-	// biome-ignore lint/complexity/useLiteralKeys: <- Required for TypeScript index signature
-	const home = process.env["HOME"] || process.env["USERPROFILE"]
-	if (!home) return
-	await $`mkdir -p ${home}/.local/state/kiset/ports`
-	await file(`${home}/.local/state/kiset/ports/assignments.json`).write(
+export async function writeAssignments(
+	assignments: PortAssignments
+): Promise<void> {
+	await file(PATHS.ASSIGNMENTS_STATE).write(
 		JSON.stringify(assignments, null, 2)
 	)
+}
+
+export async function releasePorts(programName: string): Promise<void> {
+	const assignments = await readAssignments()
+	delete assignments[programName]
+	await writeAssignments(assignments)
+
+	logger.info(`Released all ports for ${programName}`)
 }
 
 export async function findAvailablePort(
@@ -45,19 +60,12 @@ export async function findAvailablePort(
 	for (let port = startPort; port <= endPort; port++) {
 		if (excludePorts.has(port)) continue
 
-		const inUse = await is_port_available(port, "127.0.0.1")
+		const inUse = await isPortAvailable(port, "127.0.0.1")
 		if (inUse) return port
 	}
 
 	throw new Error(
 		`No available ports in range ${startPort}-${endPort}. Consider expanding the range or releasing some ports.`
-	)
-}
-
-export async function getAssignedPorts(): Promise<Set<number>> {
-	const assignments = await readAssignments()
-	return new Set(
-		Object.values(assignments).flatMap((ports) => Object.values(ports))
 	)
 }
 
@@ -71,7 +79,7 @@ export async function assignAutoPorts(
 	const allAssignedPorts = await getAssignedPorts()
 	const assignedPorts: Record<string, PortAssignment> = {}
 
-	const globalConfig = await loadGlobalConfig()
+	const globalConfig = await getGlobalConfig()
 	const portRange = globalConfig.server.port_assignment?.range || {
 		end: 4999,
 		start: 4000
@@ -129,12 +137,4 @@ export async function assignAutoPorts(
 	)
 
 	return assignedPorts
-}
-
-export async function releasePorts(programName: string): Promise<void> {
-	const assignments = await readAssignments()
-	delete assignments[programName]
-	await writeAssignments(assignments)
-
-	logger.info(`Released all ports for ${programName}`)
 }

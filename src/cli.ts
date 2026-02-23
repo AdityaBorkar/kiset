@@ -2,6 +2,7 @@
 
 import { Command } from "commander"
 
+import { autostart, revoke_autostart, revoke_trust } from "#/index"
 import { list } from "#/sdk/list"
 import { run } from "#/sdk/run"
 import { logs } from "#/sdk/service.logs"
@@ -9,8 +10,9 @@ import { start } from "#/sdk/service.start"
 import { status } from "#/sdk/service.status"
 import { stop } from "#/sdk/service.stop"
 import { trust } from "#/sdk/trust"
-import { cleanup, cleanupPidFiles } from "#/utils/config"
-import { type LogLevel, logger, setLogLevel } from "#/utils/logger"
+import { cleanup, LOCKFILE, type LogLevel, logger, setLogLevel } from "#/utils"
+
+LOCKFILE.release()
 
 const EXIT_CODES = {
 	ERROR: 1,
@@ -121,20 +123,6 @@ service
 		const results = await status(false)
 		if (jsonOutput) {
 			console.log(JSON.stringify(results))
-		} else {
-			for (const service of results) {
-				if (service.running) {
-					const healthIndicator = service.healthy ? "✓" : "✗"
-					const healthText = service.healthy
-						? "healthy"
-						: `unhealthy (${service.error})`
-					logger.info(
-						`${service.name.padEnd(8)} ${healthIndicator} running (PID: ${service.pid}, Port: ${service.port}) - ${healthText}`
-					)
-				} else {
-					logger.info(`${service.name.padEnd(8)} stopped`)
-				}
-			}
 		}
 	})
 
@@ -167,16 +155,59 @@ program
 	.command("trust")
 	.description("Trust the local Caddy certificate (for HTTPS)")
 	.action(async () => {
-		await trust()
+		const result = await trust()
+		if (jsonOutput) {
+			console.log(
+				JSON.stringify({
+					exitCode: result ? EXIT_CODES.SUCCESS : EXIT_CODES.ERROR,
+					status: result ? "trusted" : "failed"
+				})
+			)
+		}
+	})
+
+program
+	.command("revoke-trust")
+	.description("Revoke trust for the local Caddy certificate (for HTTPS)")
+	.action(async () => {
+		const result = await revoke_trust()
+		if (jsonOutput) {
+			console.log(
+				JSON.stringify({
+					exitCode: result ? EXIT_CODES.SUCCESS : EXIT_CODES.ERROR,
+					status: result ? "revoked" : "failed"
+				})
+			)
+		}
+	})
+
+program
+	.command("autostart")
+	.description("Enable autostart for the service")
+	.action(async () => {
+		await autostart()
 		if (jsonOutput) {
 			console.log(
 				JSON.stringify({
 					exitCode: EXIT_CODES.SUCCESS,
-					status: "trusted"
+					status: "enabled"
 				})
 			)
-		} else {
-			logger.info("Certificate trusted successfully")
+		}
+	})
+
+program
+	.command("revoke-autostart")
+	.description("Disable autostart for the service")
+	.action(async () => {
+		await revoke_autostart()
+		if (jsonOutput) {
+			console.log(
+				JSON.stringify({
+					exitCode: EXIT_CODES.SUCCESS,
+					status: "disabled"
+				})
+			)
 		}
 	})
 

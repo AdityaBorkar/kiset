@@ -2,6 +2,7 @@ import { $, write } from "bun"
 
 import ora from "ora"
 
+import { CADDY_INSTALL_COMMANDS } from "#/constants"
 import {
 	cleanup,
 	getPlatform,
@@ -12,7 +13,8 @@ import {
 	tryCatch,
 	waitForProcess
 } from "#/utils"
-import { CADDY_INSTALL_COMMANDS } from "#/utils/constants"
+
+// systemctl status proxy.service
 
 export async function start(
 	detached: boolean = true,

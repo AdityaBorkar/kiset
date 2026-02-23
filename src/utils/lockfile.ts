@@ -1,4 +1,4 @@
-import { file } from "bun"
+import { file, sleep } from "bun"
 
 export class LockFile {
 	private lockPath: string
@@ -8,28 +8,28 @@ export class LockFile {
 		this.lockPath = lockPath
 	}
 
-	async acquire(timeout: number = 5000): Promise<void> {
+	async acquire(timeout: number = 5000): Promise<boolean> {
 		const startTime = Date.now()
 		const pid = process.pid
 
 		while (Date.now() - startTime < timeout) {
-			const lockFile = file(this.lockPath)
-			const exists = await lockFile.exists()
-
-			if (!exists) {
-				try {
-					await lockFile.write(`${pid}\n`)
-					this.acquired = true
-					return
-				} catch (error) {
-					const err = error as NodeJS.ErrnoException
-					if (err.code === "EEXIST") {
-						continue
-					}
-					throw error
-				}
+			const isLocked = await this.isLocked()
+			if (isLocked) {
+				await sleep(100)
+				continue
 			}
-			await new Promise((resolve) => setTimeout(resolve, 50))
+
+			try {
+				await file(this.lockPath).write(`${pid}\n`)
+				this.acquired = true
+				return true
+			} catch (error) {
+				const err = error as NodeJS.ErrnoException
+				if (err.code === "EEXIST") {
+					continue
+				}
+				throw error
+			}
 		}
 
 		throw new Error(
@@ -47,12 +47,17 @@ export class LockFile {
 		}
 	}
 
-	async withLock<T>(fn: () => Promise<T>): Promise<T> {
-		await this.acquire()
-		try {
-			return await fn()
-		} finally {
-			await this.release()
-		}
+	async isLocked(): Promise<boolean> {
+		const lockFile = file(this.lockPath)
+		return await lockFile.exists()
+	}
+
+	async unlock() {
+		// TODO: Identify the process holding the lock and gracefully KILL the process
+		// try {
+		// 	const lockFile = file(this.lockPath)
+		// 	await lockFile.delete()
+		// } catch {}
+		return false
 	}
 }

@@ -1,6 +1,7 @@
 import { file } from "bun"
 
-import { PATHS } from "#/utils"
+import { status } from "#/sdk/service.status"
+import { logger, PATHS } from "#/utils"
 
 export interface LogsOptions {
 	follow?: boolean
@@ -8,94 +9,62 @@ export interface LogsOptions {
 	service?: "dnsmasq" | "caddy"
 }
 
-async function tailWithPrefix(
-	logPath: string,
-	prefix: string,
-	lines: number
-): Promise<void> {
-	const proc = Bun.spawn(["tail", "-n", `${lines}`, logPath], {
-		stderr: "inherit",
-		stdout: "pipe"
-	})
-
-	const stdout = proc.stdout
-	if (!stdout) {
-		await proc.exited
-		return
-	}
-
-	const text = await new Response(stdout).text()
-	for (const line of text.split("\n")) {
-		if (line) console.log(`${prefix} ${line}`)
-	}
-
-	await proc.exited
-}
-
-async function followLogs(
-	paths: Array<{ name: string; path: string }>
-): Promise<void> {
-	const decoder = new TextDecoder()
-	const procs = paths.map((log) =>
-		Bun.spawn(["tail", "-f", log.path], { stderr: "inherit", stdout: "pipe" })
-	)
-
-	try {
-		while (true) {
-			const results = await Promise.all(
-				procs.map(async (proc) => {
-					const stdout = proc.stdout
-					if (!stdout) return null
-					const reader = stdout.getReader()
-					const result = await reader.read()
-					reader.releaseLock()
-					return { proc, result }
-				})
-			)
-
-			if (results.every((r) => r === null || r.result.done)) break
-
-			for (let i = 0; i < results.length; i++) {
-				const item = results[i]
-				if (!item || item.result.done || !item.result.value) continue
-
-				const text = decoder.decode(item.result.value, { stream: true })
-				const prefix = `[${paths[i]?.name}]`
-				for (const line of text.split("\n")) {
-					if (line) console.log(`${prefix} ${line}`)
-				}
-			}
-		}
-	} finally {
-		await Promise.all(procs.map((proc) => proc.exited))
-	}
-}
-
 export async function logs(options?: LogsOptions): Promise<void> {
 	const { service, follow = false, limit = 50 } = options ?? {}
 
-	const services = service ? [service] : ["dnsmasq", "caddy"]
-	const logPaths = services.map((svc) => ({
-		name: svc,
-		path: `${PATHS.LOGS_DIR}/${svc}.log`
-	}))
+	const services = service ? [service] : ["caddy"]
+	const statuses = await status(false)
 
-	for (const { path } of logPaths) {
-		if (!(await file(path).exists())) {
-			throw new Error(`Log file not found: ${path}`)
+	for (const name of services) {
+		const status = statuses[name]
+		if (!status || !status.running) {
+			logger.error(`Service '${name}' is not running.`)
+			continue
 		}
-	}
 
-	if (follow) {
-		await followLogs(logPaths)
-	} else if (logPaths.length === 1) {
-		await Bun.spawn(["tail", "-n", `${limit}`, logPaths[0]?.path ?? ""], {
-			stderr: "inherit",
-			stdout: "inherit"
-		}).exited
-	} else {
-		for (const item of logPaths) {
-			await tailWithPrefix(item.path, `[${item.name}]`, limit)
+		const logPath = `${PATHS.LOGS_DIR}/${name}.log`
+		if (!(await file(logPath).exists())) {
+			logger.error(`Log file not found: ${logPath}`)
+		}
+
+		if (follow) {
+			const decoder = new TextDecoder()
+			const process = Bun.spawn(["tail", "-f", logPath], {
+				stderr: "inherit",
+				stdout: "pipe"
+			})
+			try {
+				while (true) {
+					// const stdout = process.stdout
+					// if (!stdout) return null
+					const reader = process.stdout.getReader()
+					const result = await reader.read()
+					reader.releaseLock()
+
+					if (result.done || !result.value) continue
+					const text = decoder.decode(result.value, { stream: true })
+					for (const line of text.split("\n")) {
+						if (line) console.log(`[${name}] ${line}`)
+					}
+				}
+			} finally {
+				await process.exited
+			}
+		} else {
+			const process = Bun.spawn(["tail", "-n", limit.toString(), logPath], {
+				stderr: "inherit",
+				stdout: "pipe"
+			})
+			const stdout = process.stdout
+			if (!stdout) {
+				await process.exited
+				return
+			}
+			const text = await new Response(stdout).text()
+			for (const line of text.split("\n")) {
+				if (line) console.log(`${name}: ${line}`)
+			}
+			await process.exited
 		}
 	}
 }

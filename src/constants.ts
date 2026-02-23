@@ -1,5 +1,5 @@
 import type { GlobalConfigSchemaType } from "#/utils/config"
-import type { Platform } from "."
+import type { Platform } from "./utils"
 
 export const CADDY_INSTALL_COMMANDS = {
 	arch: "sudo pacman -S --noconfirm caddy",
@@ -12,7 +12,6 @@ export const CADDY_INSTALL_COMMANDS = {
 	ubuntu: "sudo apt-get install -y caddy"
 } as Record<Platform, string>
 
-export const DNSMASQ_PORT = 53 // TODO: Move to config
 export const DEFAULT_GLOBAL_CONFIG: GlobalConfigSchemaType = {
 	server: {
 		hostname: "localhost",

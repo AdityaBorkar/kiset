@@ -9,6 +9,6 @@ export { status } from "./sdk/service.status"
 export { stop } from "./sdk/service.stop"
 export { trust } from "./sdk/trust"
 export {
-	defineConfig,
-	type ProjectConfigSchemaType as KisetConfigSchema
+	defineProjectConfig,
+	type ProjectConfigSchemaType as KisetProjectConfigSchemaType
 } from "./utils/config"

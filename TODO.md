@@ -24,6 +24,7 @@
 7. Support { post_assignment: allow, deny } in global config
 8. Start the reverse proxy and dnsmasq in a docker instance (and make sure it is fast!)
 9. Husky - link markdown files
+10. Improve logging, JSON outputs, etc.
 
 routes.json Maps hostnames to ports
 routes.lock Prevents concurrent writes
@@ -37,6 +38,9 @@ proxy.log Proxy daemon log output
 2. Spread the word on Twitter
 3. AI Based Checklist for the project launch
 
-##
+## Future Features
 
-// TODO:caddy,config,constants,
+- Infisical
+- Custom Hostname using dnsmasq (example: adityaborkar.abcloud)
+- Web UI
+- ABCloud

@@ -1,9 +1,7 @@
 import { basename } from "node:path"
 
-import { loadConfig } from "#/utils/config"
-import { logger } from "#/utils/logger"
-import { assignAutoPorts } from "#/utils/port-assignment"
-import { configureProxy } from "#/utils/proxy"
+import { assignAutoPorts, getProjectConfig, logger } from "#/utils"
+import { configureProxy } from "#/utils/caddy"
 import { status } from "./service.status"
 
 async function exec(
@@ -24,21 +22,16 @@ async function exec(
 
 export async function run(command: string, args: string[]): Promise<number> {
 	logger.info("Loading configuration...")
-	const config = await loadConfig()
+	const config = await getProjectConfig()
 
 	logger.info("Checking service status...")
 	const statusResults = await status(false)
-
-	const allRunning = statusResults.every((service) => service.running)
-
+	const allRunning = Object.values(statusResults).every(
+		(service) => service.running
+	)
 	if (!allRunning) {
-		const stoppedServices = statusResults
-			.filter((service) => !service.running)
-			.map((service) => service.name)
-			.join(", ")
-
 		throw new Error(
-			`kiset services not running: ${stoppedServices}. Run \`kiset start\` first.`
+			`Run \`kiset start\` first and make sure all services are running.`
 		)
 	}
 
@@ -50,6 +43,7 @@ export async function run(command: string, args: string[]): Promise<number> {
 	logger.info("Configuring DNS and proxy...")
 	await configureProxy(portAssignments)
 
+	logger.info("Environment variables:")
 	const env = Object.fromEntries(
 		Object.entries(portAssignments).map(([portKey, portInfo]) => [
 			portKey,

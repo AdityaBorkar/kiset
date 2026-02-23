@@ -94,6 +94,14 @@ dnsmasq  ✓ running (PID: 12345, Port: 5353) - healthy
 caddy    ✓ running (PID: 12346, Port: 8443) - healthy
 ```
 
+### How to trust Caddy
+
+- If running in WSL instance, import the certificate in Windows using the command `certutil -addstore -f ROOT "$env:USERPROFILE\OneDrive\Desktop\root.crt"`
+- For Firefox, follow the below steps:
+   1. Settings → Privacy & Security → Certificates → View Certificates → Authorities
+   2. Import `root.crt` → Check "Trust this CA to identify websites" → OK
+- You need to manually remove these steps when you want to untrust the certificate
+
 ## Exit Codes
 
 The CLI uses the following exit codes:

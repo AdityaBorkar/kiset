@@ -1,11 +1,32 @@
 import { $ } from "bun"
 
-export async function revoke_trust() {
-	// sudo caddy trust
-	const cert_path = `~/.local/share/caddy/pki/authorities/local/root.crt`
-	await $`cp ${cert_path} .`.text()
+import ora from "ora"
 
-	// Copy file to Desktop
-	// WINDOWS: certutil -addstore -f ROOT "$env:USERPROFILE\OneDrive\Desktop\root.crt"
-	// FIREFOX (WINDOWS): Settings → Privacy & Security → Certificates → View Certificates → Authorities → Import `root.crt` → Check "Trust this CA to identify websites" → OK
+import { PATHS } from "#/utils"
+import { getServerStatus } from "#/utils/caddy"
+import { logger } from "#/utils/logger"
+
+export async function revoke_trust() {
+	const spinner = ora().start()
+
+	spinner.text = "Checking 'caddy' status..."
+	const status = await getServerStatus()
+	if (status !== "running") {
+		if (spinner) {
+			spinner.fail(`'caddy' is not running.`)
+			logger.error("Run `kiset service start` to start the services.")
+		}
+		return false
+	}
+
+	spinner.text = "Revoking certificate with 'caddy'..."
+	await $`sudo caddy untrust`
+
+	spinner.text = "Copying certificate to current directory..."
+	await $`cp ${PATHS.CADDY_CERT_PATH} .`.cwd(process.cwd())
+
+	spinner.succeed(
+		"Certificate revoked and copied to current directory successfully."
+	)
+	return true
 }

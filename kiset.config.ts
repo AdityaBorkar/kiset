@@ -1,8 +1,8 @@
-import { defineConfig } from "./src/index"
+import { defineProjectConfig } from "./src/index"
 
 const environment = process.env.NODE_ENV || "development"
 
-export default defineConfig({
+export default defineProjectConfig({
 	environment,
 	infisical: {
 		siteUrl:
