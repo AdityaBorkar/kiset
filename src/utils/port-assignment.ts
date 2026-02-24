@@ -11,29 +11,12 @@ type PortAssignment = {
 	name?: string
 }
 
-// export async function readAssignments(): Promise<Assignments> {
-// 	const f = file(ASSIGNMENTS_FILE)
-// 	if (!(await f.exists())) {
-// 		await $`mkdir -p ${PATHS.STATE_DIR}`
-// 		return {}
-// 	}
-// 	return JSON.parse(await f.text())
-// }
-
-// export async function writeAssignments(
-// 	assignments: Assignments
-// ): Promise<void> {
-// 	await $`mkdir -p ${PATHS.STATE_DIR}`
-// 	await file(ASSIGNMENTS_FILE).write(JSON.stringify(assignments, null, 2))
-// }
-
 export async function readAssignments(): Promise<PortAssignments> {
 	const state = file(PATHS.ASSIGNMENTS_STATE)
 	if (!(await state.exists())) {
 		return {}
 	}
-	const assignments = state.json()
-	return assignments
+	return await state.json()
 }
 
 export async function writeAssignments(
@@ -60,13 +43,23 @@ export async function findAvailablePort(
 	for (let port = startPort; port <= endPort; port++) {
 		if (excludePorts.has(port)) continue
 
-		const inUse = await isPortAvailable(port, "127.0.0.1")
+		const inUse = await isPortAvailable({ hostname: "127.0.0.1", port })
 		if (inUse) return port
 	}
 
 	throw new Error(
 		`No available ports in range ${startPort}-${endPort}. Consider expanding the range or releasing some ports.`
 	)
+}
+
+function getAssignedPorts(assignments: PortAssignments): Set<number> {
+	const ports = new Set<number>()
+	for (const programPorts of Object.values(assignments)) {
+		for (const port of Object.values(programPorts)) {
+			ports.add(port)
+		}
+	}
+	return ports
 }
 
 export async function assignAutoPorts(
@@ -76,15 +69,15 @@ export async function assignAutoPorts(
 	programName: string
 ): Promise<Record<string, PortAssignment>> {
 	const assignments = await readAssignments()
-	const allAssignedPorts = await getAssignedPorts()
+	const allAssignedPorts = getAssignedPorts(assignments)
 	const assignedPorts: Record<string, PortAssignment> = {}
 
 	const globalConfig = await getGlobalConfig()
-	const portRange = globalConfig.server.port_assignment?.range || {
+	const portRange = globalConfig.port_assignment?.range || {
 		end: 4999,
 		start: 4000
 	}
-	const deniedPorts = new Set(globalConfig.server.port_assignment?.deny || [])
+	const deniedPorts = new Set(globalConfig.port_assignment?.deny || [])
 
 	for (const [portKey, portConfig] of Object.entries(config.ports)) {
 		const excludePorts = new Set([...allAssignedPorts, ...deniedPorts])

@@ -66,7 +66,7 @@ export async function waitForProcess(
 		if (!running) {
 			throw new Error(`Process ${pid} exited unexpectedly`)
 		}
-		if (await isPortAvailable(port, hostname)) return
+		if (await isPortAvailable({ hostname, port })) return
 		await sleep(200)
 	}
 
@@ -75,10 +75,13 @@ export async function waitForProcess(
 	)
 }
 
-export async function isPortAvailable(
-	port: number,
-	host: string
-): Promise<boolean> {
+export async function isPortAvailable({
+	port,
+	hostname
+}: {
+	port: number
+	hostname: string
+}): Promise<boolean> {
 	return new Promise((resolve) => {
 		const socket = new Socket()
 
@@ -99,7 +102,7 @@ export async function isPortAvailable(
 			resolve(false)
 		})
 
-		socket.connect(port, host)
+		socket.connect(port, hostname)
 	})
 }
 
@@ -111,7 +114,7 @@ export async function waitForPort(
 	const startTime = Date.now()
 
 	while (Date.now() - startTime < timeout) {
-		if (await isPortAvailable(port, host)) {
+		if (await isPortAvailable({ hostname: host, port })) {
 			return
 		}
 		await new Promise((resolve) => setTimeout(resolve, 100))

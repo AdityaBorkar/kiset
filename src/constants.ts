@@ -13,16 +13,20 @@ export const CADDY_INSTALL_COMMANDS = {
 } as Record<Platform, string>
 
 export const DEFAULT_GLOBAL_CONFIG: GlobalConfigSchemaType = {
+	port_assignment: {
+		deny: [],
+		range: {
+			end: 4999,
+			start: 4000
+		}
+	},
 	server: {
 		hostname: "localhost",
 		https: true,
-		port: 443,
-		port_assignment: {
-			deny: [],
-			range: {
-				end: 4999,
-				start: 4000
-			}
-		}
+		port: 443
+	},
+	server_admin: {
+		hostname: "localhost",
+		port: 2020
 	}
 }

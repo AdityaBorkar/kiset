@@ -2,14 +2,15 @@ import { $ } from "bun"
 
 import ora from "ora"
 
+import type { Arguments } from "#/cli"
 import { PATHS } from "#/utils"
 import { getServerStatus } from "#/utils/caddy"
 import { logger } from "#/utils/logger"
 
-export async function revoke_trust() {
-	const spinner = ora().start()
+export async function revoke_trust(_: null, { verbose }: Arguments) {
+	const spinner = verbose ? ora().start() : undefined
 
-	spinner.text = "Checking 'caddy' status..."
+	if (spinner) spinner.text = "Checking 'caddy' status..."
 	const status = await getServerStatus()
 	if (status !== "running") {
 		if (spinner) {
@@ -19,13 +20,13 @@ export async function revoke_trust() {
 		return false
 	}
 
-	spinner.text = "Revoking certificate with 'caddy'..."
+	if (spinner) spinner.text = "Revoking certificate with 'caddy'..."
 	await $`sudo caddy untrust`
 
-	spinner.text = "Copying certificate to current directory..."
+	if (spinner) spinner.text = "Copying certificate to current directory..."
 	await $`cp ${PATHS.CADDY_CERT_PATH} .`.cwd(process.cwd())
 
-	spinner.succeed(
+	spinner?.succeed(
 		"Certificate revoked and copied to current directory successfully."
 	)
 	return true

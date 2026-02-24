@@ -18,7 +18,7 @@ type CaddyConfig = {
 	}
 }
 
-async function $fetch(method: "POST" | "GET", endpoint: string, body?: any) {
+async function $fetch(method: "POST" | "GET", endpoint: string, body?: Object) {
 	const CADDY_ADMIN_API = "http://127.0.0.1:2519"
 	const response = await fetch(`${CADDY_ADMIN_API}${endpoint}`, {
 		body: body ? JSON.stringify(body) : undefined,
@@ -30,6 +30,19 @@ async function $fetch(method: "POST" | "GET", endpoint: string, body?: any) {
 		throw new Error(`Caddy Request Failed: ${response.statusText}`)
 	}
 	return await response.json()
+}
+
+export const caddy = {
+	config: {
+		get: getConfig,
+		update: updateConfig
+	},
+	routes: {
+		add: addCaddyRoutes,
+		list: listCaddyRoutes,
+		remove: removeCaddyRoutes
+	},
+	status: getServerStatus
 }
 
 async function getConfig(): Promise<CaddyConfig | null> {
@@ -82,9 +95,13 @@ async function removeCaddyRoutes(domains: string[]): Promise<void> {
 	}
 }
 
-async function addCaddyRoutes(
-	mappings: Array<{ domain: string; port: number }>
-): Promise<void> {
+async function addCaddyRoutes({
+	domain,
+	port
+}: {
+	domain: string
+	port: number
+}): Promise<void> {
 	try {
 		const config = await getConfig()
 		if (!config) {
@@ -96,26 +113,24 @@ async function addCaddyRoutes(
 		const existingRoutes = config.apps?.http?.servers?.srv0?.routes || []
 		const newRoutes: CaddyRoute[] = []
 
-		for (const mapping of mappings) {
-			const domains = [`${mapping.domain}.local`, `${mapping.domain}.localhost`]
+		const domains = [`${domain}.local`, `${domain}.localhost`]
 
-			for (const domain of domains) {
-				const existingRoute = existingRoutes.find((route) => {
-					const matchHosts = route?.match?.flatMap((m) => m?.host || []) || []
-					return matchHosts.includes(domain)
+		for (const domain of domains) {
+			const existingRoute = existingRoutes.find((route) => {
+				const matchHosts = route?.match?.flatMap((m) => m?.host || []) || []
+				return matchHosts.includes(domain)
+			})
+
+			if (!existingRoute) {
+				newRoutes.push({
+					handle: [
+						{
+							handler: "reverse_proxy",
+							upstreams: [{ dial: `127.0.0.1:${port}` }]
+						}
+					],
+					match: [{ host: [domain] }]
 				})
-
-				if (!existingRoute) {
-					newRoutes.push({
-						handle: [
-							{
-								handler: "reverse_proxy",
-								upstreams: [{ dial: `127.0.0.1:${mapping.port}` }]
-							}
-						],
-						match: [{ host: [domain] }]
-					})
-				}
 			}
 		}
 
@@ -136,47 +151,72 @@ async function addCaddyRoutes(
 	}
 }
 
-export async function configureCaddyProxy(
-	mappings: Array<{ domain: string; port: number }>
-): Promise<void> {
-	try {
-		const domains = mappings.flatMap((m) => [
-			`${m.domain}.local`,
-			`${m.domain}.localhost`
-		])
+async function listCaddyRoutes(): Promise<
+	Array<{ domain: string; port: number }>
+> {
+	const config = await getConfig()
+	if (!config) return []
 
-		await removeCaddyRoutes(domains)
-		await addCaddyRoutes(mappings)
+	const server = config.apps?.http?.servers?.srv0
+	if (!server?.routes) return []
 
-		logger.info(`Configured Caddy proxy for ${mappings.length} service(s)`)
-	} catch (error) {
-		logger.error(`Failed to configure Caddy proxy: ${error}`)
-		throw error
-	}
-}
-
-export async function configureProxy(
-	portAssignments: Record<string, { port: number; name?: string }>
-): Promise<void> {
 	const mappings: Array<{ domain: string; port: number }> = []
-	const domains: string[] = []
+	for (const route of server.routes) {
+		const matchHosts = route?.match?.flatMap((m) => m?.host || []) || []
+		const upstreamPort =
+			route?.handle?.[0]?.upstreams?.[0]?.dial.split(":")[1] || ""
 
-	for (const portInfo of Object.values(portAssignments)) {
-		if (portInfo.name) {
-			domains.push(`${portInfo.name}.local`)
-			domains.push(`${portInfo.name}.localhost`)
-			mappings.push({ domain: portInfo.name, port: portInfo.port })
+		for (const host of matchHosts) {
+			mappings.push({
+				domain: host.replace(/\.local$|\.localhost$/, ""),
+				port: Number(upstreamPort)
+			})
 		}
 	}
-
-	if (domains.length === 0) {
-		logger.info("No named services found, skipping proxy configuration")
-		return
-	}
-
-	// await configureDnsmasq(domains)
-	await configureCaddyProxy(mappings)
+	return mappings
 }
+
+// export async function configureCaddyProxy(
+// 	mappings: Array<{ domain: string; port: number }>
+// ): Promise<void> {
+// 	try {
+// 		const domains = mappings.flatMap((m) => [
+// 			`${m.domain}.local`,
+// 			`${m.domain}.localhost`
+// 		])
+
+// 		await removeCaddyRoutes(domains)
+// 		await addCaddyRoutes(mappings)
+
+// 		logger.info(`Configured Caddy proxy for ${mappings.length} service(s)`)
+// 	} catch (error) {
+// 		logger.error(`Failed to configure Caddy proxy: ${error}`)
+// 		throw error
+// 	}
+// }
+
+// export async function configureProxy(
+// 	portAssignments: Record<string, { port: number; name?: string }>
+// ): Promise<void> {
+// 	const mappings: Array<{ domain: string; port: number }> = []
+// 	const domains: string[] = []
+
+// 	for (const portInfo of Object.values(portAssignments)) {
+// 		if (portInfo.name) {
+// 			domains.push(`${portInfo.name}.local`)
+// 			domains.push(`${portInfo.name}.localhost`)
+// 			mappings.push({ domain: portInfo.name, port: portInfo.port })
+// 		}
+// 	}
+
+// 	if (domains.length === 0) {
+// 		logger.info("No named services found, skipping proxy configuration")
+// 		return
+// 	}
+
+// 	// await configureDnsmasq(domains)
+// 	await configureCaddyProxy(mappings)
+// }
 
 // async function reloadDnsmasq(): Promise<void> {
 // 	try {

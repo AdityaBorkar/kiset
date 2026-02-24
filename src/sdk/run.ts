@@ -1,7 +1,7 @@
-import { basename } from "node:path"
+import ora from "ora"
 
 import { assignAutoPorts, getProjectConfig, logger } from "#/utils"
-import { configureProxy } from "#/utils/caddy"
+import { caddy } from "#/utils/caddy"
 import { status } from "./service.status"
 
 async function exec(
@@ -20,30 +20,42 @@ async function exec(
 	return proc.exitCode ?? 1
 }
 
-export async function run(command: string, args: string[]): Promise<number> {
-	logger.info("Loading configuration...")
-	const config = await getProjectConfig()
+export async function run({
+	command,
+	args
+}: {
+	command: string
+	args: string[]
+}): Promise<number> {
+	const spinner = ora().start()
 
-	logger.info("Checking service status...")
-	const statusResults = await status(false)
-	const allRunning = Object.values(statusResults).every(
-		(service) => service.running
-	)
+	if (spinner) spinner.text = "Checking service status..."
+	const statuses = await status(null, { verbose: false })
+	const allRunning = Object.values(statuses).every((service) => service.running)
 	if (!allRunning) {
 		throw new Error(
 			`Run \`kiset start\` first and make sure all services are running.`
 		)
 	}
 
-	const programName = basename(process.cwd())
+	if (spinner) spinner.text = "Loading project configuration..."
+	const config = await getProjectConfig()
+	const { projectId } = config
 
-	logger.info("Assigning ports...")
-	const portAssignments = await assignAutoPorts(config, programName)
+	if (spinner) spinner.text = "Assigning ports..."
+	const portAssignments = await assignAutoPorts(config, projectId)
+	console.log({ portAssignments })
 
-	logger.info("Configuring DNS and proxy...")
-	await configureProxy(portAssignments)
+	// logger.info("Configuring DNS and proxy...")
+	// await configureProxy(portAssignments)
 
-	logger.info("Environment variables:")
+	// const routes = await caddy.routes.list()
+	// for (const { domain, port } of routes) {
+	// 	logger.info(`Caddy route: ${domain} -> ${port}`)
+	// 	await caddy.routes.add({ domain, port })
+	// }
+
+	if (spinner) spinner.text = "Injecting environment variables..."
 	const env = Object.fromEntries(
 		Object.entries(portAssignments).map(([portKey, portInfo]) => [
 			portKey,
@@ -51,6 +63,6 @@ export async function run(command: string, args: string[]): Promise<number> {
 		])
 	)
 
-	logger.info(`Executing: ${command} ${args.join(" ")}`)
+	spinner.succeed(`Executing Command: ${command} ${args.join(" ")}`)
 	return await exec(command, args, env)
 }

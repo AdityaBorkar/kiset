@@ -10,15 +10,8 @@ import { start } from "#/sdk/service.start"
 import { status } from "#/sdk/service.status"
 import { stop } from "#/sdk/service.stop"
 import { trust } from "#/sdk/trust"
-import { cleanup, LOCKFILE, type LogLevel, logger, setLogLevel } from "#/utils"
-
-LOCKFILE.release()
-
-const EXIT_CODES = {
-	ERROR: 1,
-	SUCCESS: 0,
-	USAGE: 2
-} as const
+import { cleanup, LOCKFILE, logger } from "#/utils"
+import { EXIT_CODES } from "#/utils/errors"
 
 let isShuttingDown = false
 async function handleGracefulShutdown(signal: NodeJS.Signals) {
@@ -27,7 +20,7 @@ async function handleGracefulShutdown(signal: NodeJS.Signals) {
 
 	try {
 		logger.info(`\nReceived ${signal}, shutting down gracefully...`)
-		await stop(false)
+		await stop(null, { verbose: true })
 		process.exit(EXIT_CODES.SUCCESS)
 	} catch (error) {
 		const err = error instanceof Error ? error.message : String(error)
@@ -48,36 +41,35 @@ process.on("SIGINT", () => handleGracefulShutdown("SIGINT"))
 process.on("uncaughtException", handleCrash)
 process.on("unhandledRejection", handleCrash)
 
-const program = new Command()
+export type Arguments = {
+	verbose: boolean
+}
+type CommandProgram = Command & {
+	context: {
+		verbose: boolean
+		jsonLog: boolean
+	}
+}
+const program = new Command() as unknown as CommandProgram
+
+function getOptions() {
+	const options = program.opts()
+	const jsonLog = (options as { json?: boolean }).json ?? false
+	const verbose = !jsonLog
+	return { jsonLog, verbose }
+}
 
 program
 	.name("kiset")
 	.description("CLI for managing kiset")
 	.version("1.0.0")
 	.option("--json", "Output in JSON format", false)
-	.option(
-		"--log-level <level>",
-		"Set log level (debug, info, warn, error, silent)",
-		"info"
-	)
 	.exitOverride((err) => {
 		if (err.code === "commander.help" || err.code === "commander.version") {
 			process.exit(EXIT_CODES.SUCCESS)
 		}
 		process.exit(EXIT_CODES.USAGE)
 	})
-
-let jsonOutput = false // TODO: DEPRECATE
-program.hook("preAction", () => {
-	const options = program.opts()
-	if (options["log-level"] !== undefined) {
-		setLogLevel(options["log-level"] as LogLevel)
-	}
-	jsonOutput = (options as { json?: boolean }).json ?? false
-	if (jsonOutput) {
-		setLogLevel("silent")
-	}
-})
 
 const service = program.command("service").description("Manage kiset services")
 
@@ -86,83 +78,67 @@ service
 	.description("Start the service")
 	.option("--foreground", "Run in foreground mode", false)
 	.action(async (options) => {
-		if (jsonOutput) {
-			await start(!options.foreground, false)
-			console.log(
-				JSON.stringify({
-					exitCode: EXIT_CODES.SUCCESS,
-					status: "started"
-				})
-			)
-		} else {
-			await start(!options.foreground, true)
-		}
+		const { jsonLog, verbose } = getOptions()
+		const detached = !options.foreground
+		const result = await start({ detached }, { verbose })
+		if (jsonLog) console.log(JSON.stringify(result))
+		process.exit(result ? EXIT_CODES.SUCCESS : EXIT_CODES.ERROR)
 	})
 
 service
 	.command("stop")
 	.description("Stop the service")
 	.action(async () => {
-		if (jsonOutput) {
-			await stop(false)
-			console.log(
-				JSON.stringify({
-					exitCode: EXIT_CODES.SUCCESS,
-					status: "stopped"
-				})
-			)
-		} else {
-			await stop(true)
-		}
+		const { jsonLog, verbose } = getOptions()
+		const result = await stop(null, { verbose })
+		if (jsonLog) console.log(JSON.stringify(result))
 	})
 
 service
 	.command("status")
 	.description("Show service status")
 	.action(async () => {
-		const results = await status(false)
-		if (jsonOutput) {
-			console.log(JSON.stringify(results))
-		}
+		const { jsonLog, verbose } = getOptions()
+		const results = await status(null, { verbose })
+		if (jsonLog) console.log(JSON.stringify(results))
 	})
 
 service
 	.command("logs")
 	.description("Show logs from services")
-	.argument("[service]", "Service name (dnsmasq or caddy)")
+	.argument("[service]", "Service name (caddy)")
 	.option("--follow", "Stream logs in real-time", false)
 	.option("--limit <n>", "Number of log lines to show", "50")
 	.action(async (service, options) => {
-		const serviceTyped =
-			service === "dnsmasq" || service === "caddy"
-				? (service as "dnsmasq" | "caddy")
-				: undefined
-		const logsOptions: {
-			follow: boolean
-			limit: number
-			service?: "dnsmasq" | "caddy"
-		} = {
-			follow: options.follow,
-			limit: Number.parseInt(options.limit, 10) || 50
+		const follow = options.follow ?? false
+		const limit = Number.parseInt(options.limit, 10) || 50
+		const names = service === "caddy" ? "caddy" : ""
+		await logs({ follow, limit, names })
+	})
+
+program
+	.command("unlock")
+	.description("Forcefully release the service lock")
+	.action(async () => {
+		const { jsonLog, verbose } = getOptions()
+		const result = await LOCKFILE.UNSAFE_unlock({ verbose })
+		if (jsonLog) {
+			const status = result ? "unlocked" : "failed"
+			const exitCode = result ? EXIT_CODES.SUCCESS : EXIT_CODES.ERROR
+			console.log(JSON.stringify({ exitCode, status }))
 		}
-		if (serviceTyped) {
-			logsOptions.service = serviceTyped
-		}
-		await logs(logsOptions)
 	})
 
 program
 	.command("trust")
 	.description("Trust the local Caddy certificate (for HTTPS)")
 	.action(async () => {
-		const result = await trust()
-		if (jsonOutput) {
-			console.log(
-				JSON.stringify({
-					exitCode: result ? EXIT_CODES.SUCCESS : EXIT_CODES.ERROR,
-					status: result ? "trusted" : "failed"
-				})
-			)
+		const { jsonLog, verbose } = getOptions()
+		const result = await trust(null, { verbose })
+		if (jsonLog) {
+			const status = result ? "unlocked" : "failed"
+			const exitCode = result ? EXIT_CODES.SUCCESS : EXIT_CODES.ERROR
+			console.log(JSON.stringify({ exitCode, status }))
 		}
 	})
 
@@ -170,14 +146,12 @@ program
 	.command("revoke-trust")
 	.description("Revoke trust for the local Caddy certificate (for HTTPS)")
 	.action(async () => {
-		const result = await revoke_trust()
-		if (jsonOutput) {
-			console.log(
-				JSON.stringify({
-					exitCode: result ? EXIT_CODES.SUCCESS : EXIT_CODES.ERROR,
-					status: result ? "revoked" : "failed"
-				})
-			)
+		const { jsonLog, verbose } = getOptions()
+		const result = await revoke_trust(null, { verbose })
+		if (jsonLog) {
+			const status = result ? "unlocked" : "failed"
+			const exitCode = result ? EXIT_CODES.SUCCESS : EXIT_CODES.ERROR
+			console.log(JSON.stringify({ exitCode, status }))
 		}
 	})
 
@@ -185,14 +159,12 @@ program
 	.command("autostart")
 	.description("Enable autostart for the service")
 	.action(async () => {
-		await autostart()
-		if (jsonOutput) {
-			console.log(
-				JSON.stringify({
-					exitCode: EXIT_CODES.SUCCESS,
-					status: "enabled"
-				})
-			)
+		const { jsonLog, verbose } = getOptions()
+		const result = await autostart(null, { verbose })
+		if (jsonLog) {
+			const status = result ? "enabled" : "failed"
+			const exitCode = result ? EXIT_CODES.SUCCESS : EXIT_CODES.ERROR
+			console.log(JSON.stringify({ exitCode, status }))
 		}
 	})
 
@@ -200,14 +172,12 @@ program
 	.command("revoke-autostart")
 	.description("Disable autostart for the service")
 	.action(async () => {
-		await revoke_autostart()
-		if (jsonOutput) {
-			console.log(
-				JSON.stringify({
-					exitCode: EXIT_CODES.SUCCESS,
-					status: "disabled"
-				})
-			)
+		const { jsonLog, verbose } = getOptions()
+		const result = await revoke_autostart(null, { verbose })
+		if (jsonLog) {
+			const status = result ? "disabled" : "failed"
+			const exitCode = result ? EXIT_CODES.SUCCESS : EXIT_CODES.ERROR
+			console.log(JSON.stringify({ exitCode, status }))
 		}
 	})
 
@@ -215,89 +185,14 @@ program
 	.command("list")
 	.argument("[program]", "Program name to list ports for (optional)")
 	.description("List port assignments")
-	.action(async (program) => {
-		const result = await list(program)
-		if (jsonOutput) {
+	.action(async () => {
+		const { jsonLog, verbose } = getOptions()
+		const name = "maitri-global" // TODO: ANALYZE
+		const result = await list({ name }, { verbose })
+		if (jsonLog) {
 			console.log(JSON.stringify(result))
-		} else {
-			if (program) {
-				const ports = result as number[]
-				logger.info(`'${program}' ports: [${ports.join(", ")}]`)
-			} else {
-				const assignments = result as Record<string, number[]>
-				const entries = Object.entries(assignments)
-				if (entries.length === 0) {
-					logger.info("No port assignments found")
-				} else {
-					for (const [prog, ports] of entries) {
-						logger.info(`${prog}: [${ports.join(", ")}]`)
-					}
-				}
-			}
 		}
 	})
-
-// program
-// 	.command("assign")
-// 	.argument("<program>", "Program name to assign ports to")
-// 	.argument("<ports...>", "Port numbers to assign")
-// 	.description("Assign port(s) to a program")
-// 	.action(async (program, ports) => {
-// 		const portNumbers = ports.map(Number)
-// 		const result = await assign(program, portNumbers)
-// 		if (jsonOutput) {
-// 			console.log(
-// 				JSON.stringify({
-// 					exitCode: EXIT_CODES.SUCCESS,
-// 					ports: result,
-// 					program
-// 				})
-// 			)
-// 		} else {
-// 			logger.info(`Assigned ports [${result.join(", ")}] to '${program}'`)
-// 		}
-// 	})
-
-// program
-// 	.command("rm")
-// 	.argument("<program>", "Program name to remove ports from")
-// 	.argument(
-// 		"[ports...]",
-// 		"Port numbers to remove (optional - removes all if not specified)"
-// 	)
-// 	.description("Remove port assignment(s)")
-// 	.action(async (program, ports) => {
-// 		if (ports.length === 0) {
-// 			await removePort(program)
-// 			if (jsonOutput) {
-// 				console.log(
-// 					JSON.stringify({
-// 						exitCode: EXIT_CODES.SUCCESS,
-// 						program,
-// 						removed: true
-// 					})
-// 				)
-// 			} else {
-// 				logger.info(`Removed all port assignments for '${program}'`)
-// 			}
-// 		} else {
-// 			const portNumbers = ports.map(Number)
-// 			const result = await removePort(program, portNumbers)
-// 			if (jsonOutput) {
-// 				console.log(
-// 					JSON.stringify({
-// 						exitCode: EXIT_CODES.SUCCESS,
-// 						ports: result as number[],
-// 						program
-// 					})
-// 				)
-// 			} else {
-// 				logger.info(
-// 					`Removed ports [${(result as number[]).join(", ")}] from '${program}'`
-// 				)
-// 			}
-// 		}
-// 	})
 
 program
 	.command("run")
@@ -307,16 +202,12 @@ program
 		"Execute a command after validating config and checking service status"
 	)
 	.action(async (command, args) => {
-		const exitCode = await run(command, args)
+		const exitCode = await run({ args, command })
 		process.exit(exitCode)
 	})
 
 program.parseAsync().catch((err: unknown) => {
 	const error = err instanceof Error ? err.message : String(err)
-	if (jsonOutput) {
-		console.error(JSON.stringify({ error, exitCode: EXIT_CODES.ERROR }))
-	} else {
-		logger.error(error)
-	}
+	logger.error(error)
 	process.exit(EXIT_CODES.ERROR)
 })

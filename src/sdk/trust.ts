@@ -2,13 +2,14 @@ import { $ } from "bun"
 
 import ora from "ora"
 
+import type { Arguments } from "#/cli"
 import { logger, PATHS } from "#/utils"
 import { getServerStatus } from "#/utils/caddy"
 
-export async function trust() {
-	const spinner = ora().start()
+export async function trust(_: null, { verbose }: Arguments) {
+	const spinner = verbose ? ora().start() : null
 
-	spinner.text = "Checking 'caddy' status..."
+	if (spinner) spinner.text = "Checking 'caddy' status..."
 	const status = await getServerStatus()
 	if (status !== "running") {
 		if (spinner) {
@@ -18,13 +19,13 @@ export async function trust() {
 		return false
 	}
 
-	spinner.text = "Trusting certificate with 'caddy'..."
+	if (spinner) spinner.text = "Trusting certificate with 'caddy'..."
 	await $`sudo caddy trust`
 
-	spinner.text = "Copying certificate to current directory..."
+	if (spinner) spinner.text = "Copying certificate to current directory..."
 	await $`cp ${PATHS.CADDY_CERT_PATH} .`.cwd(process.cwd())
 
-	spinner.succeed(
+	spinner?.succeed(
 		"Certificate trusted and copied to current directory successfully."
 	)
 	return true

@@ -1,8 +1,12 @@
-export async function logProcessExit(
-	subprocess: ReturnType<typeof Bun.spawn>,
-	serviceName: string,
-	logFile: string
-) {
+export async function logProcessExit({
+	subprocess,
+	name,
+	logFilePath
+}: {
+	subprocess: ReturnType<typeof Bun.spawn>
+	name: string
+	logFilePath: string
+}) {
 	try {
 		const exitCode = await subprocess.exited
 		const reasons: Record<number, string> = {
@@ -14,7 +18,7 @@ export async function logProcessExit(
 		const reason =
 			reasons[exitCode as keyof typeof reasons] ||
 			`Exited with code ${exitCode}`
-		console.error(`${serviceName} ${reason}. See ${logFile} for details.`)
+		console.error(`\n${name} ${reason}.\nSee ${logFilePath} for details.`)
 		process.exit(exitCode)
 	} catch {}
 }
@@ -46,3 +50,9 @@ export class ServiceStartError extends Error {
 		this.name = "ServiceStartError"
 	}
 }
+
+export const EXIT_CODES = {
+	ERROR: 1,
+	SUCCESS: 0,
+	USAGE: 2
+} as const

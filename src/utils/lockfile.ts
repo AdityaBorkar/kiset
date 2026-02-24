@@ -1,5 +1,7 @@
 import { file, sleep } from "bun"
 
+import { logger } from "#/utils/logger"
+
 export class LockFile {
 	private lockPath: string
 	private acquired = false
@@ -52,12 +54,25 @@ export class LockFile {
 		return await lockFile.exists()
 	}
 
-	async unlock() {
-		// TODO: Identify the process holding the lock and gracefully KILL the process
-		// try {
-		// 	const lockFile = file(this.lockPath)
-		// 	await lockFile.delete()
-		// } catch {}
-		return false
+	async UNSAFE_unlock(props: { verbose?: boolean } = {}): Promise<boolean> {
+		try {
+			// TODO: Identify the process holding the lock and gracefully KILL the process
+			const lockFile = file(this.lockPath)
+			const acquired = await lockFile.exists()
+			if (!acquired) {
+				return true
+			}
+			await lockFile.delete()
+			if (props.verbose) {
+				logger.info("Lock released successfully (unsafe)")
+			}
+			return true
+		} catch (err) {
+			if (props.verbose) {
+				logger.info("Lock released successfully (unsafe)")
+				logger.error(`Failed to release lock: ${err}`)
+			}
+			return false
+		}
 	}
 }

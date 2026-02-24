@@ -25,6 +25,7 @@
 8. Start the reverse proxy and dnsmasq in a docker instance (and make sure it is fast!)
 9. Husky - link markdown files
 10. Improve logging, JSON outputs, etc.
+11. Cross Platform Support for: `autostart`, `trust`, `revoke_trust`, `revoke_autostart`
 
 routes.json Maps hostnames to ports
 routes.lock Prevents concurrent writes

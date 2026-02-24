@@ -1,19 +1,21 @@
 import { userInfo } from "node:os"
 import { $, write } from "bun"
 
+import ora from "ora"
+
+import type { Arguments } from "#/cli"
 import { PATHS } from "#/utils"
 import { SERVICE_NAME } from "#/utils/paths"
 
-export async function autostart() {
-	const user = userInfo().username
+export async function autostart(_: null, { verbose }: Arguments) {
 	const cwd = process.cwd()
+	const user = userInfo().username
+	const spinner = verbose ? ora().start() : null
 
 	if (process.getuid?.() !== 0) {
-		console.error("Run this script with sudo.")
-		process.exit(1)
+		spinner?.fail("Run this script with sudo.")
+		return false
 	}
-
-	// TODO: Cross Platform Support
 
 	const content = `[Unit]
 Description=Proxy Service
@@ -35,5 +37,6 @@ WantedBy=multi-user.target
 	await $`sudo systemctl enable ${SERVICE_NAME}`
 	await $`sudo systemctl start ${SERVICE_NAME}`
 
-	console.log("Service installed and enabled.")
+	spinner?.succeed("Service installed and enabled.")
+	return true
 }

@@ -6,14 +6,14 @@ import { logger, PATHS } from "#/utils"
 export interface LogsOptions {
 	follow?: boolean
 	limit?: number
-	service?: "dnsmasq" | "caddy"
+	names?: string
 }
 
 export async function logs(options?: LogsOptions): Promise<void> {
-	const { service, follow = false, limit = 50 } = options ?? {}
+	const { names, follow = false, limit = 50 } = options ?? {}
 
-	const services = service ? [service] : ["caddy"]
-	const statuses = await status(false)
+	const services = names ? names.split(",") : ["caddy"]
+	const statuses = await status(null, { verbose: false })
 
 	for (const name of services) {
 		const status = statuses[name]
@@ -62,7 +62,7 @@ export async function logs(options?: LogsOptions): Promise<void> {
 			}
 			const text = await new Response(stdout).text()
 			for (const line of text.split("\n")) {
-				if (line) console.log(`${name}: ${line}`)
+				if (line) console.log(`[${name}] ${line}`)
 			}
 			await process.exited
 		}

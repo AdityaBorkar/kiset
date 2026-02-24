@@ -1,12 +1,15 @@
-import { $, write } from "bun"
+import { $, file, spawn, write } from "bun"
 
 import ora from "ora"
 
+import type { Arguments } from "#/cli"
 import { CADDY_INSTALL_COMMANDS } from "#/constants"
+import { status } from "#/sdk/service.status"
 import {
-	cleanup,
+	getGlobalConfig,
 	getPlatform,
 	isInstalled,
+	isPortAvailable,
 	LOCKFILE,
 	logProcessExit,
 	PATHS,
@@ -14,23 +17,25 @@ import {
 	waitForProcess
 } from "#/utils"
 
-// systemctl status proxy.service
-
 export async function start(
-	detached: boolean = true,
-	verbose: boolean = false
+	{ detached }: { detached: boolean },
+	{ verbose }: Arguments
 ) {
 	// Initialization
 	const platform = await getPlatform()
+	const config = await getGlobalConfig()
 
 	// Create necessary directories
 	await $`mkdir -p ${PATHS.CONFIG_DIR} ${PATHS.STATE_DIR} ${PATHS.LOGS_DIR}`
 
 	// Acquire lock to prevent concurrent starts
-	LOCKFILE.acquire()
+	await LOCKFILE.acquire()
+
+	// Existing services check
+	const statuses = await status(null, { verbose: false })
 
 	// Start `caddy`
-	{
+	await (async () => {
 		const spinner = verbose ? ora().start() : null
 
 		// Check if `caddy` is installed
@@ -40,50 +45,59 @@ export async function start(
 			throw new Error(`'caddy' is not installed. Install: ${command}`)
 		}
 
+		// TODO: Check if already started, if yes, then DO NOT START AGAIN
+		if (statuses["caddy"]?.running) {
+			spinner?.warn(`'caddy' is already running.`)
+			return
+		}
+
 		// Configure Service
 		if (spinner) spinner.text = `Configuring 'caddy'...`
-		const ADMIN_API_PORT = 5000 // TODO: GET FROM CONFIG
-		await write(
-			PATHS.CADDY_CONFIG,
-			`{\n\tadmin 127.0.0.1:${ADMIN_API_PORT}\n}\n`
-		)
+		const { hostname = "", port = 0 } = config.server_admin
+		await write(PATHS.CADDY_CONFIG, `{\n\tadmin ${hostname}:${port}\n}\n`)
+
+		// todo: check if port is available
+		const available = isPortAvailable({ hostname, port })
+		if (!available) {
+			spinner?.fail(
+				`Port ${port} is not available. Please free it or change the admin port in the global config.`
+			)
+			return
+		}
 
 		// Start Service
 		if (spinner) spinner.text = `Starting 'caddy'...`
 		const logFilePath = `${PATHS.LOGS_DIR}/caddy.log`
-		// TODO: PROVIDE SUDO PASSWORD
-		const proc = Bun.spawn(
-			["sudo", "caddy", "run", "--config", PATHS.CADDY_CONFIG],
-			{
-				detached,
-				stderr: Bun.file(logFilePath),
-				stdout: Bun.file(logFilePath)
-			}
-		)
+		const subprocess = spawn(["caddy", "run", "--config", PATHS.CADDY_CONFIG], {
+			detached,
+			stderr: Bun.file(logFilePath),
+			stdout: Bun.file(logFilePath)
+		})
+		const pid = subprocess.pid
 
 		// Save state and log exit
-		const CADDY_PORT = 5000 // TODO: GET FROM CONFIG
-		const HOSTNAME = "localhost" // TODO: GET FROM CONFIG
-		const state = { pid: proc.pid, port: CADDY_PORT }
+		const state = { hostname, pid, port }
 		await write(PATHS.CADDY_STATE, JSON.stringify(state, null, 2))
-		logProcessExit(proc, "caddy", logFilePath) // TODO: ANALYZE
+		logProcessExit({ logFilePath, name: "caddy", subprocess }) // TODO: ANALYZE
 
 		// Check if service is ready
 		if (spinner) spinner.text = `Waiting for 'caddy' to be ready...`
 		const { error } = await tryCatch(
-			waitForProcess(proc.pid, CADDY_PORT, HOSTNAME) // TODO: ANALYZE
+			waitForProcess(pid, port, hostname) // TODO: ANALYZE
 		)
 		if (error) {
 			spinner?.fail(`'caddy' failed to start: ${error}`)
-			await cleanup([proc.pid])
+			await $`kill ${pid} 2>/dev/null || true`.catch(() => {})
+			file(PATHS.CADDY_STATE).unlink()
 			throw error
+		} else {
+			spinner?.succeed(
+				`'caddy' started on http://${hostname}:${port} (PID: ${pid})`
+			)
 		}
-		spinner?.succeed(
-			`'caddy' started on ${HOSTNAME}:${CADDY_PORT} (PID: ${proc.pid})`
-		)
-	}
+	})()
 
 	// Release lock
-	LOCKFILE.release()
-	return
+	await LOCKFILE.release()
+	return true
 }

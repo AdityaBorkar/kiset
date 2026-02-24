@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: NOT A CORE PROGRAM */
+
 import { createOpencode } from "@opencode-ai/sdk"
 import { consola } from "consola"
 import ora from "ora"
