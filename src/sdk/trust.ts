@@ -1,13 +1,19 @@
-import { $ } from "bun"
+import { createHash } from "node:crypto"
+import { $, file } from "bun"
 
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
-import { logger, PATHS } from "#/utils"
-import { getServerStatus } from "#/utils/caddy"
+import { logger } from "#/utils"
+import { caddy, getServerStatus } from "#/utils/caddy"
 
 export async function trust(_: null, { verbose }: Arguments) {
 	const spinner = verbose ? ora().start() : null
+
+	if (process.getuid?.() !== 0) {
+		spinner?.fail("Run this script with sudo.")
+		return false
+	}
 
 	if (spinner) spinner.text = "Checking 'caddy' status..."
 	const status = await getServerStatus()
@@ -19,14 +25,31 @@ export async function trust(_: null, { verbose }: Arguments) {
 		return false
 	}
 
-	if (spinner) spinner.text = "Trusting certificate with 'caddy'..."
-	await $`sudo caddy trust`
+	if (spinner) spinner.text = "Getting certificate with 'caddy'..."
+	const certificate = await caddy.cert.get()
 
-	if (spinner) spinner.text = "Copying certificate to current directory..."
-	await $`cp ${PATHS.CADDY_CERT_PATH} .`.cwd(process.cwd())
+	if (spinner) spinner.text = "Updating certificate stores..."
+	const hash = createHash("sha256")
+		.update(certificate.root_certificate, "utf-8")
+		.digest("hex")
+
+	const certFile = `/usr/local/share/ca-certificates/${certificate.root_common_name}_${hash}.crt`
+	file(certFile).write(certificate.root_certificate)
+	await $`sudo update-ca-certificates`
 
 	spinner?.succeed(
 		"Certificate trusted and copied to current directory successfully."
 	)
+
+	const isWsl = true
+	if (isWsl) {
+		const path = await $`wslpath -w ${certFile}`.text()
+		console.log(
+			"Run Command in Powershell (with elevated permissions):\n",
+			`certutil -addstore Root "${path.trim()}"`
+		)
+		// powershell.exe -Command "Start-Process certutil -ArgumentList '-addstore Root \"$WIN_CERT_PATH\"' -Verb RunAs"
+	}
+
 	return true
 }

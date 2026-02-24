@@ -1,126 +1,91 @@
 import { file } from "bun"
 
 import { isPortAvailable, PATHS } from "#/utils"
-import { getGlobalConfig } from "#/utils/config"
-import { logger } from "#/utils/logger"
 
-type PortAssignments = Record<string, Record<string, number>>
+type PortAssignments = Record<string, Record<string, PortAssignment>>
 
 type PortAssignment = {
 	port: number
+	name: string
+	subdomain?: string
+}
+
+export async function getPortAssignments(props?: {
 	name?: string
-}
-
-export async function readAssignments(): Promise<PortAssignments> {
+	projectId?: string
+}) {
 	const state = file(PATHS.ASSIGNMENTS_STATE)
-	if (!(await state.exists())) {
-		return {}
+	const assignments = (await state.exists())
+		? ((await state.json()) as PortAssignments)
+		: {}
+
+	const { projectId, name } = props || {}
+	if (projectId) {
+		if (name) {
+			return assignments[projectId]?.[name]
+		}
+		return assignments[projectId] || {}
 	}
-	return await state.json()
+
+	return Object.entries(assignments).flatMap(([projectId, assignment]) => {
+		return Object.entries(assignment).map(([, data]) => ({
+			projectId,
+			...data
+		}))
+	})
 }
 
-export async function writeAssignments(
-	assignments: PortAssignments
-): Promise<void> {
+export async function registerPortAssignment(props: {
+	name: string
+	projectId: string
+	port: number
+	subdomain?: string
+}): Promise<void> {
+	const { projectId, name, port, subdomain = "" } = props
+
+	const state = file(PATHS.ASSIGNMENTS_STATE)
+	const assignments = (await state.exists())
+		? ((await state.json()) as PortAssignments)
+		: {}
+
+	if (!assignments[projectId]) {
+		assignments[projectId] = {}
+	}
+	assignments[projectId][name] = { name, port, subdomain }
+
 	await file(PATHS.ASSIGNMENTS_STATE).write(
 		JSON.stringify(assignments, null, 2)
 	)
 }
 
-export async function releasePorts(programName: string): Promise<void> {
-	const assignments = await readAssignments()
-	delete assignments[programName]
-	await writeAssignments(assignments)
+// export async function releasePorts(programName: string): Promise<void> {
+// 	const assignments = await getPortAssignments()
+// 	delete assignments[programName]
+// 	await writePortAssignments(assignments)
+// 	logger.info(`Released all ports for ${programName}`)
+// }
 
-	logger.info(`Released all ports for ${programName}`)
-}
-
-export async function findAvailablePort(
-	startPort: number,
-	endPort: number,
-	excludePorts: Set<number>
-): Promise<number> {
-	for (let port = startPort; port <= endPort; port++) {
-		if (excludePorts.has(port)) continue
+export async function getRandomAvailablePort({
+	startPort,
+	endPort,
+	exclude
+}: {
+	startPort: number
+	endPort: number
+	exclude: Set<number>
+}): Promise<number> {
+	const range = endPort - startPort + 1
+	while (true) {
+		const port = Math.floor(Math.random() * range) + startPort
+		if (exclude.has(port)) continue
+		if (exclude.size >= range) {
+			throw new Error(
+				`No available ports in range ${startPort}-${endPort}. Consider expanding the range or releasing some ports.`
+			)
+		}
 
 		const available = await isPortAvailable({ hostname: "127.0.0.1", port })
 		if (available) return port
+		exclude.add(port)
 	}
-
-	throw new Error(
-		`No available ports in range ${startPort}-${endPort}. Consider expanding the range or releasing some ports.`
-	)
-}
-
-function getAssignedPorts(assignments: PortAssignments): Set<number> {
-	return new Set(Object.values(assignments).flatMap(Object.values))
-}
-
-export async function assignAutoPorts(
-	config: {
-		ports: Record<string, { dev?: number | "auto"; name?: string }>
-	},
-	programName: string
-): Promise<Record<string, PortAssignment>> {
-	const assignments = await readAssignments()
-	const allAssignedPorts = getAssignedPorts(assignments)
-	const assignedPorts: Record<string, PortAssignment> = {}
-
-	const globalConfig = await getGlobalConfig()
-	const portRange = globalConfig.port_assignment?.range || {
-		end: 4999,
-		start: 4000
-	}
-	const deniedPorts = new Set(globalConfig.port_assignment?.deny || [])
-
-	for (const [portKey, portConfig] of Object.entries(config.ports)) {
-		const excludePorts = new Set([...allAssignedPorts, ...deniedPorts])
-		let portNumber: number
-
-		if (typeof portConfig.dev === "number") {
-			portNumber = portConfig.dev
-			if (
-				excludePorts.has(portNumber) &&
-				!assignments[programName]?.[portKey]
-			) {
-				throw new Error(
-					`Port ${portNumber} is already assigned to another program or is denied. Use 'auto' for automatic assignment or choose a different port.`
-				)
-			}
-		} else {
-			const existingPort = assignments[programName]?.[portKey]
-			if (existingPort) {
-				portNumber = existingPort
-			} else {
-				portNumber = await findAvailablePort(
-					portRange.start,
-					portRange.end,
-					excludePorts
-				)
-			}
-		}
-
-		assignedPorts[portKey] = {
-			port: portNumber,
-			...(portConfig.name && { name: portConfig.name })
-		}
-		allAssignedPorts.add(portNumber)
-	}
-
-	if (!assignments[programName]) {
-		assignments[programName] = {}
-	}
-
-	for (const [portKey, portInfo] of Object.entries(assignedPorts)) {
-		assignments[programName][portKey] = portInfo.port
-	}
-
-	await writeAssignments(assignments)
-
-	const portList = Object.entries(assignedPorts)
-		.map(([k, v]) => `${k}=${v.port}`)
-		.join(", ")
-	logger.info(`Assigned ports for ${programName}: ${portList}`)
-
-	return assignedPorts
 }

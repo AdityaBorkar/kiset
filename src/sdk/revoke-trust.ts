@@ -31,3 +31,6 @@ export async function revoke_trust(_: null, { verbose }: Arguments) {
 	)
 	return true
 }
+
+// sudo rm /usr/local/share/ca-certificates/your-cert.crt
+// sudo update-ca-certificates

@@ -11,10 +11,10 @@ export default defineProjectConfig({
 				: "https://app.infisical.com"
 	},
 	ports: {
-		CONVEX_DASHBOARD_PORT: {},
-		CONVEX_DB_PORT: {},
-		CONVEX_ORIGIN_PORT: {},
-		VITE_SERVER_PORT: { name: "maitri-global" }
+		CONVEX_DASHBOARD_PORT: { subdomain: "convex-dash.maitri-global" },
+		CONVEX_DB_PORT: { subdomain: "convex.maitri-global" },
+		CONVEX_ORIGIN_PORT: { subdomain: "convex-origin.maitri-global" },
+		VITE_SERVER_PORT: { subdomain: "maitri-global" }
 	},
 	projectId: "maitri-global"
 })

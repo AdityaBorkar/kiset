@@ -27,14 +27,6 @@ bun run typecheck        # Run TypeScript type checking
 tsc --noEmit             # Manual type check without emitting files
 ```
 
-### Testing
-
-```bash
-bun test                 # Run all tests (Bun test framework)
-bun test <test-file>     # Run a specific test file
-bun test --watch         # Run tests in watch mode
-```
-
 ## Code Style Guidelines
 
 ### Imports
@@ -56,18 +48,18 @@ bun test --watch         # Run tests in watch mode
 ### TypeScript
 
 - **Strict mode** enabled - all strict compiler flags on
-- Use explicit `as` type assertions only when necessary: `return "darwin" as PlatformId`
+- Use explicit `as` type assertions only when necessary: `return "darwin" as Platform`
 - Define types with `as const` for readonly arrays: `const PLATFORMS = [...] as const`
-- Use `Record<PlatformId, string>` for platform-specific mappings
+- Use `Record<Platform, string>` for platform-specific mappings
 - Schema validation with **arktype**: `const Schema = type({...})`
 - Type inference: `type SchemaType = typeof Schema.infer`
 
 ### Naming Conventions
 
-- **Functions/Variables**: camelCase - `getPlatformId()`, `waitForService()`
-- **Types/Interfaces**: PascalCase - `PlatformId`, `ServiceStatus`
-- **Constants**: UPPER_SNAKE_CASE - `DNSMASQ_PORT`, `CADDY_PORT`
-- **Files**: lowercase with underscores for multi-word - `dnsmasq.conf`, `caddy.pid`
+- **Functions/Variables**: camelCase - `getPlatform()`, `isRunningProcess()`
+- **Types/Interfaces**: PascalCase - `Platform`, `ServiceStatus`
+- **Constants**: UPPER_SNAKE_CASE - `PATHS`, `LOCKFILE`, `SERVICE_NAME`
+- **Files**: lowercase with underscores for multi-word - `kiset.config.json`, `caddy.json`
 - **CLI Commands**: lowercase kebab-case - `kiset start`, `kiset stop`
 
 ### Error Handling
@@ -84,19 +76,28 @@ bun test --watch         # Run tests in watch mode
 ```
 src/
   ├── cli.ts              # CLI entry point, commander config
-  ├── config.ts           # Arktype schemas and validation
-  ├── constants.ts        # Platform-specific configs
+  ├── constants.ts        # Platform-specific configs (CADDY_INSTALL_COMMANDS)
   ├── index.ts            # Public API exports
   ├── sdk/
-  │   ├── start.ts        # Service startup logic
-  │   ├── stop.ts         # Service shutdown logic
-  │   ├── status.ts       # Health checking
-  │   └── ...             # Other SDK modules
+  │   ├── service.start.ts    # Service startup logic
+  │   ├── service.stop.ts     # Service shutdown logic
+  │   ├── service.status.ts   # Health checking
+  │   ├── service.logs.ts     # Service log viewing
+  │   ├── autostart.ts        # Enable/disable autostart
+  │   ├── trust.ts            # Certificate trust management
+  │   ├── list.ts             # Port assignment listing
+  │   └── run.ts              # Command execution runner
   └── utils/
-      ├── index.ts        # Core utilities, platform detection
-      ├── errors.ts       # Custom error classes
+      ├── index.ts        # Core utilities, exports
+      ├── config.ts       # Arktype schemas and config loading
+      ├── constants.ts    # Platform detection, supported platforms
+      ├── errors.ts       # Custom error classes, exit codes
       ├── logger.ts       # Consola logging setup
-      └── merge.ts        # Deep merge utilities
+      ├── lockfile.ts     # Lock file management
+      ├── paths.ts        # XDG-compliant path resolution
+      ├── port-assignment.ts  # Port assignment logic
+      ├── try-catch.ts    # Error wrapper utilities
+      └── utils.ts        # Process, port, platform utilities
 ```
 
 ### Async Patterns
@@ -105,20 +106,19 @@ src/
 - Use `Bun.spawn()` for detached processes with `{ detached: true }`
 - Use `Bun.file()` for file operations: `await file(path).write(content)`
 - Use `ora` spinners for long-running async operations with descriptive messages
-- Use `retryWithBackoff()` for flaky operations (e.g., network checks)
 
 ### Logging & User Output
 
 - Use `consola` logger: `logger.info()`, `logger.error()`, `logger.warn()`
-- Log levels: debug, info, warn, error, silent (set via `--log-level`)
+- Log levels: debug, info, warn, error, silent (programmatically via `setLogLevel()`)
 - JSON output mode: set `--json` flag for machine-readable output
 - Log health check failures with context and suggestions
 
 ### Platform-Specific Code
 
-- Detect platform via `getPlatformId()` from `src/utils/index.ts`
+- Detect platform via `getPlatform()` from `src/utils/index.ts`
 - Platform IDs: darwin, ubuntu, debian, fedora, rhel, centos, arch, manjaro
-- Use `Record<PlatformId, string>` for platform-specific commands/paths
+- Use `Record<Platform, string>` for platform-specific commands/paths
 - Validate platform support before accessing platform-specific configs
 - Handle unsupported platforms with clear error messages
 
@@ -128,8 +128,8 @@ src/
   - Config: `$XDG_CONFIG_HOME/kiset/` (~/.config/kiset/)
   - State: `$XDG_STATE_HOME/kiset/` (~/.local/state/kiset/)
   - Logs: `$XDG_STATE_HOME/kiset/logs/`
-- Store PIDs in `.pid` files: `caddy.pid`, `dnsmasq.pid`
-- Use lock files with `createLockFile().withLock()` for critical sections
+- Store PIDs in `.json` state files: `caddy.json`
+- Use lock files with `LOCKFILE.acquire()` and `LOCKFILE.release()` for critical sections
 - Create directories with `mkdir -p` before use: `$`mkdir -p ${dir}``
 
 ### Security Considerations
@@ -143,8 +143,9 @@ src/
 ### Process Management
 
 - Spawn processes: `Bun.spawn([...args], { detached, stdout, stderr })`
-- Check if process running: `await isProcessRunning(pid)`
-- Wait for service ready: `await waitForService(pid, port, timeout)`
+- Check if process running: `await isRunningProcess(pid)`
+- Wait for service ready: `await waitForProcess(pid, port, hostname)`
+- Wait for port availability: `await waitForPort(port, host, timeout)`
 - Graceful shutdown on SIGTERM/SIGINT with cleanup handlers
 - Log process exit codes with context: 143 (SIGTERM), 130 (SIGINT), 137 (SIGKILL)
 
@@ -160,5 +161,5 @@ src/
 - **consola** - Logging (imported as `logger`)
 - **ora** - Terminal spinners
 - **arktype** - Schema validation
-- **Bun APIs** - `$`, `file`, `spawn` for system operations
+- **Bun APIs** - `$`, `file`, `spawn`, `write`, `sleep` for system operations
 - **Node.js** - Use `node:` protocol for built-ins when Bun alternative unavailable

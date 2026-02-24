@@ -1,4 +1,4 @@
-import { Socket } from "node:net"
+import { createServer } from "node:http"
 import { $, sleep } from "bun"
 
 import { PATHS } from "#/utils"
@@ -75,34 +75,84 @@ export async function waitForProcess(
 	)
 }
 
-export async function isPortAvailable({
-	port,
-	hostname
-}: {
+// export async function isPortAvailable({
+// 	port,
+// 	hostname
+// }: {
+// 	port: number
+// 	hostname: string
+// }): Promise<boolean> {
+// 	return new Promise((resolve) => {
+// 		const socket = new Socket()
+
+// 		socket.setTimeout(2000)
+
+// 		socket.once("connect", () => {
+// 			socket.destroy()
+// 			resolve(false)
+// 		})
+
+// 		socket.once("timeout", () => {
+// 			socket.destroy()
+// 			resolve(false)
+// 		})
+
+// 		socket.once("error", () => {
+// 			socket.destroy()
+// 			resolve(true)
+// 		})
+
+// 		socket.connect(port, hostname)
+// 	})
+// }
+
+interface Options {
+	hostname?: string // default: "::" (covers IPv4 + IPv6 on most systems)
 	port: number
-	hostname: string
-}): Promise<boolean> {
-	return new Promise((resolve) => {
-		const socket = new Socket()
+	signal?: AbortSignal
+}
 
-		socket.setTimeout(100)
+export function isPortAvailable({
+	port,
+	hostname: host = "::",
+	signal
+}: Options): Promise<boolean> {
+	return new Promise((resolve, reject) => {
+		const server = createServer()
 
-		socket.on("connect", () => {
-			socket.destroy()
-			resolve(true)
+		const cleanup = () => {
+			server.removeAllListeners()
+		}
+
+		if (signal?.aborted) {
+			cleanup()
+			return reject(new Error("Aborted"))
+		}
+
+		signal?.addEventListener("abort", () => {
+			cleanup()
+			server.close()
+			reject(new Error("Aborted"))
 		})
 
-		socket.on("timeout", () => {
-			socket.destroy()
-			resolve(false)
+		server.once("error", (err: NodeJS.ErrnoException) => {
+			cleanup()
+			// EADDRINUSE → definitely not available
+			if (err.code === "EADDRINUSE") return resolve(false)
+			// EACCES → permission issue (treat as unavailable)
+			if (err.code === "EACCES") return resolve(false)
+			// Other errors → propagate
+			reject(err)
 		})
 
-		socket.on("error", () => {
-			socket.destroy()
-			resolve(false)
+		server.once("listening", () => {
+			server.close(() => {
+				cleanup()
+				resolve(true)
+			})
 		})
 
-		socket.connect(port, hostname)
+		server.listen({ exclusive: true, host, port })
 	})
 }
 

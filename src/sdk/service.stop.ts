@@ -4,6 +4,7 @@ import ora from "ora"
 
 import type { Arguments } from "#/cli"
 import { LOCKFILE, PATHS } from "#/utils"
+import { caddy } from "#/utils/caddy"
 
 export async function stop(_: null, { verbose }: Arguments) {
 	// Initialization
@@ -27,9 +28,7 @@ export async function stop(_: null, { verbose }: Arguments) {
 
 		if (state.pid) {
 			await $`kill ${state.pid} 2>/dev/null || true`.catch(() => {})
-			await $`caddy stop --config ${PATHS.CADDY_CONFIG} 2>/dev/null || true`.catch(
-				() => {}
-			)
+			await caddy.stop()
 			spinner?.succeed(`'caddy' stopped.`)
 		} else {
 			spinner?.info(`'caddy' is not running.`)

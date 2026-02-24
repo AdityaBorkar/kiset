@@ -60,8 +60,8 @@ const ProjectConfigSchema = type({
 	},
 	ports: {
 		"[string]": {
-			"dev?": "number>=1024  | 'auto'",
-			"name?": "string"
+			// "dev?": "number>=1024  | 'auto'",
+			"subdomain?": "string"
 		}
 	},
 	projectId: "string"

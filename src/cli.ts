@@ -185,9 +185,8 @@ program
 	.command("list")
 	.argument("[program]", "Program name to list ports for (optional)")
 	.description("List port assignments")
-	.action(async () => {
+	.action(async (name) => {
 		const { jsonLog, verbose } = getOptions()
-		const name = "maitri-global" // TODO: ANALYZE
 		const result = await list({ name }, { verbose })
 		if (jsonLog) {
 			console.log(JSON.stringify(result))

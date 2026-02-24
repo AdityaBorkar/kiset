@@ -9,12 +9,12 @@ import { SERVICE_NAME } from "#/utils/paths"
 export async function revoke_autostart(_: null, { verbose }: Arguments) {
 	const spinner = verbose ? ora().start() : undefined
 
-	if (spinner) spinner.text = "Disabling autostart for the service..."
 	if (process.getuid?.() !== 0) {
 		spinner?.fail("Run this script with sudo.")
 		return false
 	}
 
+	if (spinner) spinner.text = "Disabling autostart for the service..."
 	await $`sudo systemctl disable ${SERVICE_NAME}`
 	await $`sudo systemctl stop ${SERVICE_NAME}`
 	await $`sudo rm ${PATHS.AUTOSTART_SERVICE_PATH}`

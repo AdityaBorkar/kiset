@@ -1,23 +1,13 @@
 import ora from "ora"
 
-import { assignAutoPorts, getProjectConfig } from "#/utils"
+import { getGlobalConfig, getProjectConfig } from "#/utils"
+import { caddy } from "#/utils/caddy"
+import {
+	getPortAssignments,
+	getRandomAvailablePort,
+	registerPortAssignment
+} from "#/utils/port-assignment"
 import { status } from "./service.status"
-
-async function exec(
-	command: string,
-	args: string[],
-	env: Record<string, string>
-): Promise<number> {
-	const proc = Bun.spawn([command, ...args], {
-		env: { ...process.env, ...env },
-		stderr: "inherit",
-		stdin: "inherit",
-		stdout: "inherit"
-	})
-
-	await proc.exited
-	return proc.exitCode ?? 1
-}
 
 export async function run({
 	command,
@@ -37,31 +27,67 @@ export async function run({
 		)
 	}
 
-	if (spinner) spinner.text = "Loading project configuration..."
-	const config = await getProjectConfig()
-	const { projectId } = config
+	if (spinner) spinner.text = "Loading configuration..."
+	const gConfig = await getGlobalConfig()
+	const pConfig = await getProjectConfig()
+
+	const { hostname = "localhost" } = gConfig.server
+	const { projectId } = pConfig
+	const { start: startPort, end: endPort } = pConfig.port_assignment?.range || {
+		end: 4999,
+		start: 4000
+	}
+	const env: Record<string, string> = {}
 
 	if (spinner) spinner.text = "Assigning ports..."
-	const portAssignments = await assignAutoPorts(config, projectId)
-	console.log({ portAssignments })
 
-	// logger.info("Configuring DNS and proxy...")
-	// await configureProxy(portAssignments)
+	const ports = (await getPortAssignments()) || []
+	if (!Array.isArray(ports)) {
+		throw new Error(
+			`Unexpected port assignments format. Expected an object but got an array. Please check your state file for corruption.`
+		)
+	}
+	const exclude = new Set(ports.map(({ port }) => port))
+	for (const name in pConfig.ports) {
+		const { subdomain = "" } = pConfig.ports[name] || {}
 
-	// const routes = await caddy.routes.list()
-	// for (const { domain, port } of routes) {
-	// 	logger.info(`Caddy route: ${domain} -> ${port}`)
-	// 	await caddy.routes.add({ domain, port })
-	// }
+		// Assign Port
+		let { port } =
+			ports.filter((p) => p.name === name && p.projectId === projectId)?.[0] ||
+			{}
+		if (!port) {
+			port = await getRandomAvailablePort({ endPort, exclude, startPort })
+			await registerPortAssignment({ name, port, projectId })
+			exclude.add(port)
+		}
 
-	if (spinner) spinner.text = "Injecting environment variables..."
-	const env = Object.fromEntries(
-		Object.entries(portAssignments).map(([portKey, portInfo]) => [
-			portKey,
-			String(portInfo.port)
-		])
-	)
+		// Assign subdomain and setup Reverse Proxy
+		// const routes = await caddy.routes.list()
+		// console.log({ routes })
+		await caddy.routes.add({ hostname: `${subdomain}.${hostname}`, port })
+		// const result =
+		// 	await $`caddy reverse-proxy --from ${subdomain}.${hostname} --to http://localhost:${port}`.catch(
+		// 		(e) => {
+		// 			console.error(
+		// 				`Failed to configure Caddy reverse proxy for ${name}:`,
+		// 				e
+		// 			)
+		// 			throw e
+		// 		}
+		// 	)
+		// console.log({ result })
+
+		// Inject into env
+		env[name] = port.toString()
+	}
 
 	spinner.succeed(`Executing Command: ${command} ${args.join(" ")}`)
-	return await exec(command, args, env)
+	const subprocess = Bun.spawn([command, ...args], {
+		env: { ...process.env, ...env },
+		stderr: "inherit",
+		stdin: "inherit",
+		stdout: "inherit"
+	})
+	await subprocess.exited
+	return subprocess.exitCode ?? 1
 }

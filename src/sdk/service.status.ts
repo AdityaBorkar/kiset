@@ -68,3 +68,6 @@ export async function status(_: null, { verbose }: Arguments) {
 // 		return { error: `HTTP request failed: ${error}`, healthy: false }
 // 	}
 // }
+
+// ls /etc/ssl/certs | grep your-cert
+// powershell.exe -Command "Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object { \$_.Subject -like '*YourName*' }"

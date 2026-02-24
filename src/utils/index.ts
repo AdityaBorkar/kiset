@@ -7,12 +7,7 @@ export const LOCKFILE = new LockFile(PATHS.LOCKFILE)
 export { getGlobalConfig, getProjectConfig } from "./config.ts"
 export { logProcessExit } from "./errors.ts"
 export { getLogLevel, type LogLevel, logger, setLogLevel } from "./logger.ts"
-export {
-	assignAutoPorts,
-	findAvailablePort,
-	readAssignments,
-	releasePorts
-} from "./port-assignment.ts"
+export { getPortAssignments } from "./port-assignment.ts"
 export { tryCatch } from "./try-catch.ts"
 export {
 	cleanup,
