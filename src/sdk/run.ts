@@ -1,7 +1,6 @@
 import ora from "ora"
 
-import { assignAutoPorts, getProjectConfig, logger } from "#/utils"
-import { caddy } from "#/utils/caddy"
+import { assignAutoPorts, getProjectConfig } from "#/utils"
 import { status } from "./service.status"
 
 async function exec(

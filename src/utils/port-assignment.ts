@@ -43,8 +43,8 @@ export async function findAvailablePort(
 	for (let port = startPort; port <= endPort; port++) {
 		if (excludePorts.has(port)) continue
 
-		const inUse = await isPortAvailable({ hostname: "127.0.0.1", port })
-		if (inUse) return port
+		const available = await isPortAvailable({ hostname: "127.0.0.1", port })
+		if (available) return port
 	}
 
 	throw new Error(
@@ -53,13 +53,7 @@ export async function findAvailablePort(
 }
 
 function getAssignedPorts(assignments: PortAssignments): Set<number> {
-	const ports = new Set<number>()
-	for (const programPorts of Object.values(assignments)) {
-		for (const port of Object.values(programPorts)) {
-			ports.add(port)
-		}
-	}
-	return ports
+	return new Set(Object.values(assignments).flatMap(Object.values))
 }
 
 export async function assignAutoPorts(
@@ -108,7 +102,7 @@ export async function assignAutoPorts(
 
 		assignedPorts[portKey] = {
 			port: portNumber,
-			...(portConfig.name !== undefined ? { name: portConfig.name } : {})
+			...(portConfig.name && { name: portConfig.name })
 		}
 		allAssignedPorts.add(portNumber)
 	}
@@ -123,11 +117,10 @@ export async function assignAutoPorts(
 
 	await writeAssignments(assignments)
 
-	logger.info(
-		`Assigned ports for ${programName}: ${Object.entries(assignedPorts)
-			.map(([k, v]) => `${k}=${v.port}`)
-			.join(", ")}`
-	)
+	const portList = Object.entries(assignedPorts)
+		.map(([k, v]) => `${k}=${v.port}`)
+		.join(", ")
+	logger.info(`Assigned ports for ${programName}: ${portList}`)
 
 	return assignedPorts
 }

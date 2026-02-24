@@ -18,7 +18,7 @@ type CaddyConfig = {
 	}
 }
 
-async function $fetch(method: "POST" | "GET", endpoint: string, body?: Object) {
+async function $fetch(method: "POST" | "GET", endpoint: string, body?: object) {
 	const CADDY_ADMIN_API = "http://127.0.0.1:2519"
 	const response = await fetch(`${CADDY_ADMIN_API}${endpoint}`, {
 		body: body ? JSON.stringify(body) : undefined,
