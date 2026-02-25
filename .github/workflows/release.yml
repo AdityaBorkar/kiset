@@ -1,20 +1,28 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - canary
-      - stable
-
-concurrency: ${{ github.workflow }}-${{ github.ref }}
-
-jobs:   
   release:
-    name: Release
+    types:
+      - created
+
+env:
+  BUN_CACHE_KEY: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build files and generate changelog
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+    if: github.ref_name == 'release'
+    env:
+      TAG: ${{ github.event.release.target_commitish }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,8 +30,61 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Release to NPM
+      - name: Delete release
+        run: gh release delete release --yes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: bunx semantic-release
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.bun/install/cache
+          key: ${{ env.BUN_CACHE_KEY }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build library
+        run: bun run build
+
+      # TODO: Use co-pilot if easily available
+      # - name: Update README.md
+      #   run: opencode run "/update-readme-file"
+
+      - name: Update CHANGELOG.md
+        run: bun changeset version --snapshot ${{ env.TAG }}
+
+      - name: Publish snapshots to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: bun changeset publish
+
+      - name: Publish snapshots to JSR
+        env:
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+        run: bunx jsr publish --tag ${{ env.TAG }}
+
+      - name: Create release
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          awk -v ver="$VERSION" '
+            $0 ~ "^## " ver "$" { found=1; next }
+            found && /^## [0-9]/ { exit }
+            found { print }
+          ' CHANGELOG.md > /tmp/release-notes.md
+          if [ -s /tmp/release-notes.md ]; then
+            gh release create "v$VERSION" --title "v$VERSION" --notes-file /tmp/release-notes.md
+          else
+            gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -43,8 +43,6 @@ async function buildEntryPoints() {
 async function generateTypes() {
 	logger.info("Generating type declarations...")
 	await $`bun tsc --emitDeclarationOnly --declaration --outDir ${DIST_DIR}`
-	// await $`mv ${DIST_DIR}/src/*.d.ts ${DIST_DIR}/`
-	// await $`rmdir ${DIST_DIR}/src`
 	logger.success("Type declarations generated")
 }
 
@@ -53,7 +51,9 @@ async function updatePackageJson() {
 	const pkgPath = "package.json"
 	const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"))
 
-	pkg.bin = { kiset: "dist/cli.js" }
+	pkg.bin = {
+		kiset: "dist/cli.js"
+	}
 	pkg.exports["."] = {
 		import: "./dist/index.js",
 		types: "./dist/index.d.ts"

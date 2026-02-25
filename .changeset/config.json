@@ -1,0 +1,12 @@
+{
+	"$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
+	"access": "public",
+	"baseBranch": "stable",
+	"changedFilePatterns": ["src/**"],
+	"changelog": [
+		"@changesets/changelog-github",
+		{ "repo": "AdityaBorkar/kiset" }
+	],
+	"commit": false,
+	"updateInternalDependencies": "patch"
+}

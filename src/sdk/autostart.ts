@@ -4,8 +4,8 @@ import { $, write } from "bun"
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
+import { PATHS } from "#/constants"
 import {
-	PATHS,
 	SERVICE_NAME,
 	setFilePermissions,
 	validatePath,

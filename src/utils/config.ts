@@ -3,9 +3,9 @@ import { file } from "bun"
 
 import { ArkErrors, type } from "arktype"
 
-import { DEFAULT_GLOBAL_CONFIG } from "#/constants"
+import { DEFAULT_GLOBAL_CONFIG, PATHS } from "#/constants"
 import type { DeepRequired } from "#/utils"
-import { deepMerge, PATHS } from "#/utils"
+import { deepMerge } from "#/utils"
 
 export type GlobalConfigSchemaType = typeof GlobalConfigSchema.infer
 export const GlobalConfigSchema = type({

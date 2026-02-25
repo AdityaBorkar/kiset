@@ -2,6 +2,7 @@
 
 ## Domain 4: Attack Surface & Local Execution
 
+<!--
 | Finding | Severity | Affected Code/File | Remediation Strategy |
 |---------|----------|-------------------|---------------------|
 | Config file handling | Low | `src/utils/paths.ts`, `src/utils/config.ts` | Consider encrypting sensitive config sections; validate file permissions on read/write |
@@ -15,6 +16,7 @@
 
 | No lockfile integrity check | Low | `.github/workflows/ci.yml:37` | Add lockfile integrity verification before `bun install` |
 | **Shell template injection** | **High** | `src/sdk/service.start.ts:90`<br>`src/utils/utils.ts:53,178`<br>`src/utils/utils.ts:45` | Replace `$\`` template literals with`Bun.spawn()` using array arguments; validate all interpolated values |
+-->
 
 1. **Input Validation Framework** - Centralized validation for all user inputs
 2. **Config Path Validation** - Prevent path traversal in config loading
@@ -105,27 +107,6 @@ const response = await fetch(`${CADDY_ADMIN_API}${endpoint}`, { ... })
 
 ---
 
-### Medium Severity: Unsafe Process Management
-
-**Location:** `src/utils/utils.ts:52-54`
-
-```typescript
-export async function killProcess(pid: string | number) {
-  return await $`kill ${pid} 2>/dev/null || true`
-}
-```
-
-**Risk:** No validation that the PID belongs to a kiset-managed process. Could be abused to kill arbitrary processes.
-
-**Remediation:**
-
-1. Verify PID exists in kiset state files
-2. Check process name/command line
-3. Validate PID is positive integer
-4. Log all kill operations for audit trail
-
----
-
 ### Medium Severity: Arbitrary Systemd File Creation
 
 **Location:** `src/sdk/autostart.ts:35`
@@ -153,14 +134,6 @@ Create a centralized validation module:
 
 ```typescript
 // src/utils/validation.ts
-export const ALLOWED_COMMANDS = ['npm', 'bun', 'node', 'yarn', 'pnpm', 'docker']
-
-export function validateCommand(cmd: string): void {
-  if (!ALLOWED_COMMANDS.includes(cmd)) {
-    throw new Error(`Command "${cmd}" is not allowed`)
-  }
-}
-
 export function validatePid(pid: number): void {
   if (!Number.isInteger(pid) || pid < 1 || pid > 4194304) {
     throw new Error(`Invalid PID: ${pid}`)
@@ -175,26 +148,8 @@ export function sanitizePath(path: string): string {
 }
 ```
 
-### 3. Security Logging
-
-```typescript
-// src/utils/security-logger.ts
-export function logSecurityEvent(event: {
-  type: 'command_spawn' | 'process_kill' | 'config_write'
-  details: Record<string, unknown>
-  userId?: number
-}) {
-  logger.debug({
-    timestamp: new Date().toISOString(),
-    ...event
-  })
-}
-```
-
 **Key Recommendations:**
 
 1. Implement centralized input validation
 2. Replace all shell template literals with spawn
 3. Enable TLS for admin API communication
-4. Add comprehensive security audit logging
-5. Conduct regular penetration testing

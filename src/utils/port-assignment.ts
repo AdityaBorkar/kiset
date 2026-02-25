@@ -1,6 +1,7 @@
 import { file } from "bun"
 
-import { isPortAvailable, PATHS } from "#/utils"
+import { PATHS } from "#/constants"
+import { isPortAvailable } from "#/utils"
 
 type PortAssignments = Record<string, Record<string, PortAssignment>>
 
