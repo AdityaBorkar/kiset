@@ -4,8 +4,8 @@ import { $, file } from "bun"
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
-import { logger } from "#/utils"
-import { caddy, getServerStatus } from "#/utils/caddy"
+import { caddy, getServerStatus } from "#/services/caddy"
+import { logger, setFilePermissions } from "#/utils"
 
 export async function trust(_: null, { verbose }: Arguments) {
 	const spinner = verbose ? ora().start() : null
@@ -35,6 +35,7 @@ export async function trust(_: null, { verbose }: Arguments) {
 
 	const certFile = `/usr/local/share/ca-certificates/${certificate.root_common_name}_${hash}.crt`
 	file(certFile).write(certificate.root_certificate)
+	setFilePermissions(certFile, 0o644)
 	await $`sudo update-ca-certificates`
 
 	spinner?.succeed(
@@ -48,7 +49,6 @@ export async function trust(_: null, { verbose }: Arguments) {
 			"Run Command in Powershell (with elevated permissions):\n",
 			`certutil -addstore Root "${path.trim()}"`
 		)
-		// powershell.exe -Command "Start-Process certutil -ArgumentList '-addstore Root \"$WIN_CERT_PATH\"' -Verb RunAs"
 	}
 
 	return true

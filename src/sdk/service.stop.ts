@@ -1,10 +1,10 @@
-import { $, file } from "bun"
+import { file } from "bun"
 
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
+import { caddy } from "#/services/caddy"
 import { LOCKFILE, PATHS } from "#/utils"
-import { caddy } from "#/utils/caddy"
 
 export async function stop(_: null, { verbose }: Arguments) {
 	// Initialization
@@ -23,12 +23,15 @@ export async function stop(_: null, { verbose }: Arguments) {
 			return
 		}
 
+		await caddy.stop()
 		const state = await stateFile.json()
 		stateFile.unlink()
 
 		if (state.pid) {
-			await $`kill ${state.pid} 2>/dev/null || true`.catch(() => {})
-			await caddy.stop()
+			// const killed = await killProcess(state.pid, { expectedName: "caddy" })
+			// if (!killed) {
+			// 	spinner?.warn(`Process ${state.pid} is not a caddy process.`)
+			// }
 			spinner?.succeed(`'caddy' stopped.`)
 		} else {
 			spinner?.info(`'caddy' is not running.`)

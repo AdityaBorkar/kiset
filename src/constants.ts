@@ -1,4 +1,4 @@
-import type { GlobalConfigSchemaType } from "#/utils/config"
+import type { GlobalConfigSchemaType } from "#/utils"
 import type { Platform } from "./utils"
 
 export const CADDY_INSTALL_COMMANDS = {

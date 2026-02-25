@@ -1,3 +1,5 @@
+# Title
+
 ## Description
 
 <!-- Describe your changes in detail -->
@@ -20,7 +22,7 @@
 - [ ] Manual testing
 - [ ] Code review
 
-## Checklist:
+## Checklist
 
 - [ ] I have followed the code style guidelines in [AGENTS.md](../AGENTS.md)
 - [ ] I have performed a self-review of my own code

@@ -35,8 +35,6 @@ export async function logs(options?: LogsOptions): Promise<void> {
 			})
 			try {
 				while (true) {
-					// const stdout = process.stdout
-					// if (!stdout) return null
 					const reader = process.stdout.getReader()
 					const result = await reader.read()
 					reader.releaseLock()

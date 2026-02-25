@@ -4,9 +4,8 @@ import { file } from "bun"
 import { ArkErrors, type } from "arktype"
 
 import { DEFAULT_GLOBAL_CONFIG } from "#/constants"
-import { PATHS } from "#/utils"
-import { deepMerge } from "#/utils/deep-merge"
-import type { DeepRequired } from "#/utils/types"
+import type { DeepRequired } from "#/utils"
+import { deepMerge, PATHS } from "#/utils"
 
 export type GlobalConfigSchemaType = typeof GlobalConfigSchema.infer
 export const GlobalConfigSchema = type({
@@ -47,6 +46,7 @@ export async function getGlobalConfig() {
 
 export type ProjectConfigSchemaType = typeof ProjectConfigSchema.infer
 const ProjectConfigSchema = type({
+	// "$schema?": "URL",
 	environment: "string",
 	infisical: {
 		siteUrl: "string"
@@ -60,7 +60,6 @@ const ProjectConfigSchema = type({
 	},
 	ports: {
 		"[string]": {
-			// "dev?": "number>=1024  | 'auto'",
 			"subdomain?": "string"
 		}
 	},

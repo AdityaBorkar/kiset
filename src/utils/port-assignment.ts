@@ -11,8 +11,8 @@ type PortAssignment = {
 }
 
 export async function getPortAssignments(props?: {
-	name?: string
-	projectId?: string
+	name?: string | undefined
+	projectId: string
 }) {
 	const state = file(PATHS.ASSIGNMENTS_STATE)
 	const assignments = (await state.exists())
@@ -58,6 +58,7 @@ export async function registerPortAssignment(props: {
 	)
 }
 
+// TODO: RELEASE PORTS
 // export async function releasePorts(programName: string): Promise<void> {
 // 	const assignments = await getPortAssignments()
 // 	delete assignments[programName]

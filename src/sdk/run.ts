@@ -1,12 +1,13 @@
 import ora from "ora"
 
-import { getGlobalConfig, getProjectConfig } from "#/utils"
-import { caddy } from "#/utils/caddy"
+import { caddy } from "#/services/caddy"
 import {
+	getGlobalConfig,
 	getPortAssignments,
+	getProjectConfig,
 	getRandomAvailablePort,
 	registerPortAssignment
-} from "#/utils/port-assignment"
+} from "#/utils"
 import { status } from "./service.status"
 
 export async function run({
@@ -62,20 +63,7 @@ export async function run({
 		}
 
 		// Assign subdomain and setup Reverse Proxy
-		// const routes = await caddy.routes.list()
-		// console.log({ routes })
 		await caddy.routes.add({ hostname: `${subdomain}.${hostname}`, port })
-		// const result =
-		// 	await $`caddy reverse-proxy --from ${subdomain}.${hostname} --to http://localhost:${port}`.catch(
-		// 		(e) => {
-		// 			console.error(
-		// 				`Failed to configure Caddy reverse proxy for ${name}:`,
-		// 				e
-		// 			)
-		// 			throw e
-		// 		}
-		// 	)
-		// console.log({ result })
 
 		// Inject into env
 		env[name] = port.toString()

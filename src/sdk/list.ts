@@ -1,14 +1,11 @@
 import type { Arguments } from "#/cli"
-import { getProjectConfig } from "#/utils"
-import { getPortAssignments } from "#/utils/port-assignment"
+import { getPortAssignments, getProjectConfig } from "#/utils"
 
 export async function list(
 	{ name, projectId }: { name?: string; projectId?: string },
 	{ verbose }: Arguments
 ) {
-	const config = await getProjectConfig()
-	const projId = projectId || config?.projectId
-	// @ts-expect-error
+	const projId = projectId || (await getProjectConfig())?.projectId
 	const assignments = await getPortAssignments({ name, projectId: projId })
 	if (verbose) {
 		console.log("Assignments:")

@@ -10,6 +10,7 @@ import {
 	getPlatform,
 	isInstalled,
 	isPortAvailable,
+	killProcess,
 	LOCKFILE,
 	logProcessExit,
 	PATHS,
@@ -68,6 +69,7 @@ export async function start(
 		// Start Service
 		if (spinner) spinner.text = `Starting 'caddy'...`
 		const logFilePath = `${PATHS.LOGS_DIR}/caddy.log`
+		// echo '{"admin":{"listen":"localhost:3000"}}' | caddy run --config -
 		const subprocess = spawn(["caddy", "run", "--config", PATHS.CADDY_CONFIG], {
 			detached,
 			stderr: Bun.file(logFilePath),
@@ -87,13 +89,14 @@ export async function start(
 		)
 		if (error) {
 			spinner?.fail(`'caddy' failed to start: ${error}`)
-			await $`kill ${pid} 2>/dev/null || true`.catch(() => {})
+			await killProcess(pid, { expectedName: "caddy" })
 			file(PATHS.CADDY_STATE).unlink()
 			throw error
 		} else {
 			spinner?.succeed(
 				`'caddy' started on http://${hostname}:${port} (PID: ${pid})`
 			)
+			console.log("Logs:", logFilePath)
 		}
 	})()
 

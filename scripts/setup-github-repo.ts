@@ -12,6 +12,32 @@ type BranchProtectionConfig = {
 	requiresStatusChecks: boolean
 }
 
+async function validateToken(token: string) {
+	const response = await fetch("https://api.github.com/user", {
+		headers: {
+			Accept: "application/vnd.github+json",
+			Authorization: `Bearer ${token}`
+		}
+	})
+
+	if (response.status === 401) {
+		throw new Error("GitHub token is invalid or expired")
+	}
+
+	if (!response.ok) {
+		const error = await response.text()
+		throw new Error(`Failed to validate token: ${error}`)
+	}
+
+	const scopes = response.headers.get("X-OAuth-Scopes") || ""
+
+	if (!scopes.includes("repo")) {
+		throw new Error(
+			`Token missing required scope 'repo'. Available scopes: ${scopes}`
+		)
+	}
+}
+
 async function setBranchProtection(
 	owner: string,
 	repo: string,
@@ -95,6 +121,9 @@ async function setupGitHubRepo() {
 
 	const spinner = ora("Setting up GitHub repository").start()
 
+	spinner.text = "Validating GitHub token"
+	await validateToken(token)
+
 	try {
 		const canaryConfig: BranchProtectionConfig = {
 			dismissStaleReviews: true,
@@ -127,3 +156,27 @@ async function setupGitHubRepo() {
 }
 
 setupGitHubRepo()
+
+// # Branch Setup Instructions
+
+// ## 2. Configure Branch Protection (via GitHub UI or API)
+
+// ### canary Branch
+
+// - Require pull request reviews before merging
+// - Require 1 approval
+// - Dismiss stale approvals when new commits are pushed
+// - Require branches to be up to date before merging
+// - Require status checks to pass before merging
+
+// ### Stable Branch
+
+// - Require pull request reviews before merging
+// - Require 2 approvals
+// - Dismiss stale approvals when new commits are pushed
+// - Require branches to be up to date before merging
+// - Require status checks to pass before merging
+
+// ## 4. Set Default Branch
+
+// Set `stable` as the default branch for production releases.

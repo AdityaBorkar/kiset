@@ -1,5 +1,6 @@
-import { getGlobalConfig } from "#/utils/config"
-import { logger } from "#/utils/logger"
+import { file } from "bun"
+
+import { logger, PATHS } from "#/utils"
 
 type CaddyRoute = {
 	match: Array<{ host?: string[] }>
@@ -24,10 +25,8 @@ async function $fetch(
 	endpoint: string,
 	body?: string
 ) {
-	const config = await getGlobalConfig()
-	const { hostname, port } = config.server_admin
-	const CADDY_ADMIN_API = `http://${hostname}:${port}`
-	const response = await fetch(`${CADDY_ADMIN_API}${endpoint}`, {
+	const { hostname, port } = await file(PATHS.CADDY_STATE).json()
+	const response = await fetch(`http://${hostname}:${port}${endpoint}`, {
 		body: body,
 		headers: { "Content-Type": "application/json" },
 		method,

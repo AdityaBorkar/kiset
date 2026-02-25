@@ -2,13 +2,17 @@
 
 ## Features
 
-1. Make it work. Test if installation works of caddy and dnsmasq. If not, ask the user to install. Give them command.
-2. Versioning Script
+1. Collect TODOs again and work on them
+2. Support { post_assignment: allow, deny } in global config
+3. Improve logging, JSON outputs, etc.
+4. Cross Platform Support for: `autostart`, `trust`, `revoke_trust`, `revoke_autostart`
+5. Infisical
+6. Versioning Script
       - Write Documentation for the `sdk`
       - Changelog
       - Readme File + Contributing File. Write ARCHITECTURE in CONTRIBUTING.md
       - Versioning
-3. GitHub Actions for CI/CD.
+7. GitHub Actions for CI/CD.
       - .github checks
       - Always Audit (bun audit) before release.
       - .releaserc.json
@@ -16,16 +20,11 @@
       - versioning.ts and generate version
       - Tsup, Publish to JSR
       - Release
-4. Setup GitHub Repository Script
-5. Comprehensive Audit
+8. Setup GitHub Repository Script
+9. Comprehensive Audit
       - Security Implications and Security Audit of this repository
       - Resolve lint errors and ts errors
-6. sudo portless trust
-7. Support { post_assignment: allow, deny } in global config
-8. Start the reverse proxy and dnsmasq in a docker instance (and make sure it is fast!)
-9. Husky - link markdown files
-10. Improve logging, JSON outputs, etc.
-11. Cross Platform Support for: `autostart`, `trust`, `revoke_trust`, `revoke_autostart`
+10. Husky - link markdown files
 
 routes.json Maps hostnames to ports
 routes.lock Prevents concurrent writes
@@ -41,7 +40,10 @@ proxy.log Proxy daemon log output
 
 ## Future Features
 
-- Infisical
-- Custom Hostname using dnsmasq (example: adityaborkar.abcloud)
+- Custom Hostname using dnsmasq (example: adityaborkar.local)
+      - This will be linked with mDNS to support these domains on the same network
+      - HTTPS certificates remain valid across the local network.
+- Tunnels
+      - Webhooks support
 - Web UI
 - ABCloud

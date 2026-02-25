@@ -49,8 +49,30 @@ export async function isRunningProcess(pid: number): Promise<boolean> {
 	}
 }
 
-export async function killProcess(pid: string | number) {
-	return await $`kill ${pid} 2>/dev/null || true`
+export async function getProcessName(pid: number): Promise<string | null> {
+	try {
+		const result = await $`ps -p ${pid} -o comm=`.quiet().text()
+		return result.trim() || null
+	} catch {
+		return null
+	}
+}
+
+export async function killProcess(
+	pid: string | number,
+	options?: { expectedName?: string }
+): Promise<boolean> {
+	const numPid = typeof pid === "string" ? Number.parseInt(pid, 10) : pid
+
+	if (options?.expectedName) {
+		const actualName = await getProcessName(numPid)
+		if (!actualName || actualName !== options.expectedName) {
+			return false
+		}
+	}
+
+	await $`kill ${numPid} 2>/dev/null || true`
+	return true
 }
 
 export async function waitForProcess(
@@ -75,39 +97,8 @@ export async function waitForProcess(
 	)
 }
 
-// export async function isPortAvailable({
-// 	port,
-// 	hostname
-// }: {
-// 	port: number
-// 	hostname: string
-// }): Promise<boolean> {
-// 	return new Promise((resolve) => {
-// 		const socket = new Socket()
-
-// 		socket.setTimeout(2000)
-
-// 		socket.once("connect", () => {
-// 			socket.destroy()
-// 			resolve(false)
-// 		})
-
-// 		socket.once("timeout", () => {
-// 			socket.destroy()
-// 			resolve(false)
-// 		})
-
-// 		socket.once("error", () => {
-// 			socket.destroy()
-// 			resolve(true)
-// 		})
-
-// 		socket.connect(port, hostname)
-// 	})
-// }
-
 interface Options {
-	hostname?: string // default: "::" (covers IPv4 + IPv6 on most systems)
+	hostname?: string
 	port: number
 	signal?: AbortSignal
 }
@@ -175,7 +166,7 @@ export async function waitForPort(
 
 export async function cleanup(pids: number[] = []) {
 	for (const pid of pids) {
-		await $`kill ${pid} 2>/dev/null || true`.catch(() => {})
+		await killProcess(pid)
 	}
 	await $`rm -f ${PATHS.STATE_DIR} ${PATHS.LOCKFILE} 2>/dev/null || true`
 }

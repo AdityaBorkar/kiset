@@ -2,16 +2,19 @@
 
 import { Command } from "commander"
 
-import { autostart, revoke_autostart, revoke_trust } from "#/index"
-import { list } from "#/sdk/list"
-import { run } from "#/sdk/run"
+import {
+	autostart,
+	list,
+	revoke_autostart,
+	revoke_trust,
+	run,
+	start,
+	status,
+	stop,
+	trust
+} from "#/index"
 import { logs } from "#/sdk/service.logs"
-import { start } from "#/sdk/service.start"
-import { status } from "#/sdk/service.status"
-import { stop } from "#/sdk/service.stop"
-import { trust } from "#/sdk/trust"
-import { cleanup, LOCKFILE, logger } from "#/utils"
-import { EXIT_CODES } from "#/utils/errors"
+import { cleanup, EXIT_CODES, LOCKFILE, logger } from "#/utils"
 
 let isShuttingDown = false
 async function handleGracefulShutdown(signal: NodeJS.Signals) {

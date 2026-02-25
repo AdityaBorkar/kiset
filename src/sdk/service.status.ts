@@ -48,26 +48,10 @@ export async function status(_: null, { verbose }: Arguments) {
 	})()
 	results["caddy"] = await caddy
 
-	// systemctl status kiset.service
-
 	return results
 }
 
-// async function checkHttpHealth(url: string): Promise<{
-// 	healthy: boolean
-// 	error?: string
-// }> {
-// 	try {
-// 		const signal = AbortSignal.timeout(5000)
-// 		const response = await fetch(url, { method: "GET", signal })
-// 		if (response.ok) {
-// 			return { healthy: true }
-// 		}
-// 		return { error: `HTTP returned status ${response.status}`, healthy: false }
-// 	} catch (error) {
-// 		return { error: `HTTP request failed: ${error}`, healthy: false }
-// 	}
-// }
-
+// TODO: CHECK
+// systemctl status kiset.service
 // ls /etc/ssl/certs | grep your-cert
 // powershell.exe -Command "Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object { \$_.Subject -like '*YourName*' }"

@@ -3,9 +3,8 @@ import { $ } from "bun"
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
-import { PATHS } from "#/utils"
-import { getServerStatus } from "#/utils/caddy"
-import { logger } from "#/utils/logger"
+import { getServerStatus } from "#/services/caddy"
+import { logger, PATHS } from "#/utils"
 
 export async function revoke_trust(_: null, { verbose }: Arguments) {
 	const spinner = verbose ? ora().start() : undefined
@@ -32,5 +31,6 @@ export async function revoke_trust(_: null, { verbose }: Arguments) {
 	return true
 }
 
+// TODO: Implement
 // sudo rm /usr/local/share/ca-certificates/your-cert.crt
 // sudo update-ca-certificates

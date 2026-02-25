@@ -1,6 +1,7 @@
+import { open } from "node:fs/promises"
 import { file, sleep } from "bun"
 
-import { logger } from "#/utils/logger"
+import { logger } from "#/utils"
 
 export class LockFile {
 	private lockPath: string
@@ -15,19 +16,16 @@ export class LockFile {
 		const pid = process.pid
 
 		while (Date.now() - startTime < timeout) {
-			const isLocked = await this.isLocked()
-			if (isLocked) {
-				await sleep(100)
-				continue
-			}
-
 			try {
-				await file(this.lockPath).write(`${pid}\n`)
+				const fd = await open(this.lockPath, "wx")
+				await fd.write(`${pid}\n`)
+				await fd.close()
 				this.acquired = true
 				return true
 			} catch (error) {
 				const err = error as NodeJS.ErrnoException
 				if (err.code === "EEXIST") {
+					await sleep(100)
 					continue
 				}
 				throw error

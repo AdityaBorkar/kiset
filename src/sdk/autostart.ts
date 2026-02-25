@@ -4,8 +4,13 @@ import { $, write } from "bun"
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
-import { PATHS } from "#/utils"
-import { SERVICE_NAME } from "#/utils/paths"
+import {
+	PATHS,
+	SERVICE_NAME,
+	setFilePermissions,
+	validatePath,
+	validateUsername
+} from "#/utils"
 
 export async function autostart(_: null, { verbose }: Arguments) {
 	const cwd = process.cwd()
@@ -16,6 +21,9 @@ export async function autostart(_: null, { verbose }: Arguments) {
 		spinner?.fail("Run this script with sudo.")
 		return false
 	}
+
+	validateUsername(user)
+	validatePath(cwd, "WorkingDirectory")
 
 	const content = `[Unit]
 Description=Proxy Service
@@ -32,7 +40,8 @@ Environment=PATH=/usr/local/bin:/usr/bin:/bin
 [Install]
 WantedBy=multi-user.target
 `
-	write(PATHS.AUTOSTART_SERVICE_PATH, content)
+	await write(PATHS.AUTOSTART_SERVICE_PATH, content)
+	setFilePermissions(PATHS.AUTOSTART_SERVICE_PATH, 0o644)
 	await $`sudo systemctl daemon-reload`
 	await $`sudo systemctl enable ${SERVICE_NAME}`
 	await $`sudo systemctl start ${SERVICE_NAME}`

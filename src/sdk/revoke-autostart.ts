@@ -3,8 +3,7 @@ import { $ } from "bun"
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
-import { PATHS } from "#/utils"
-import { SERVICE_NAME } from "#/utils/paths"
+import { PATHS, SERVICE_NAME } from "#/utils"
 
 export async function revoke_autostart(_: null, { verbose }: Arguments) {
 	const spinner = verbose ? ora().start() : undefined
