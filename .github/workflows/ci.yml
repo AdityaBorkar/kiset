@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
     branches:
-      - main
+      - stable
       - develop
 
 env:
@@ -14,7 +14,35 @@ permissions:
   id-token: write
 
 jobs:
-  check:
+  check-changesets:
+    name: Check for changeset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changeset
+        run: |
+          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD > /tmp/changed-files.txt
+
+          if grep -q "^src/" /tmp/changed-files.txt; then
+            if ! ls .changeset/*.md 1> /dev/null 2>&1; then
+              echo "Error: Changes to src/ detected, but no changeset found."
+              echo ""
+              echo "Please add a changeset to document your changes:"
+              echo "  bunx changeset"
+              echo ""
+              exit 1
+            fi
+          fi
+
+  check-types:
+    name: ${{ matrix.task }}
+    runs-on: ubuntu-latest
+
+  check-linting:
     name: ${{ matrix.task }}
     runs-on: ubuntu-latest
     strategy:
@@ -44,33 +72,3 @@ jobs:
 
       - name: Run ${{ matrix.task }}
         run: bun run ${{ matrix.task }}
-
-  generate-changelog:
-    name: Generate Changelog
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            ~/.bun/install/cache
-          key: ${{ env.BUN_CACHE_KEY }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Run changelog generation
-        run: bun ./scripts/generate-changelog
-
-# changeset version && bun install --lockfile-only

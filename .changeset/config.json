@@ -7,6 +7,6 @@
 		"@changesets/changelog-github",
 		{ "repo": "AdityaBorkar/kiset" }
 	],
-	"commit": false,
+	"commit": true,
 	"updateInternalDependencies": "patch"
 }

@@ -166,6 +166,7 @@ kiset service logs [service] [--follow] [--limit <n>]
 ```
 
 View service logs. Options:
+
 - `service`: Service name (e.g., `caddy`)
 - `--follow`: Stream logs in real-time
 - `--limit`: Number of log lines to show (default: 50)
@@ -363,51 +364,6 @@ bun run lint
 
 # Fix linting issues
 bun run lint:fix
-```
-
-### Project Structure
-
-```
-kiset/
-├── src/
-│   ├── cli.ts                    # CLI entry point and command definitions
-│   ├── constants.ts              # Platform-specific constants and defaults
-│   ├── index.ts                  # Public API exports
-│   ├── services/
-│   │   ├── caddy.ts              # Caddy service integration
-│   │   ├── cf-tunnel.ts          # Cloudflare Tunnel integration
-│   │   ├── dnsmasq.ts            # dnsmasq DNS server integration
-│   │   └── infisical.ts          # Infisical integration
-│   ├── sdk/
-│   │   ├── autostart.ts          # Autostart management
-│   │   ├── revoke-autostart.ts   # Disable autostart
-│   │   ├── revoke-trust.ts       # Revoke certificate trust
-│   │   ├── service.logs.ts       # Log viewing
-│   │   ├── service.start.ts      # Service startup logic
-│   │   ├── service.status.ts     # Health checking
-│   │   ├── service.stop.ts       # Service shutdown
-│   │   ├── trust.ts              # Certificate trust management
-│   │   ├── list.ts               # Port assignment listing
-│   │   ├── run.ts                # Command execution
-│   │   └── unlock.ts             # Lock file management
-│   └── utils/
-│       ├── config.ts             # Schema validation and config loading
-│       ├── deep-merge.ts         # Deep merge utilities
-│       ├── errors.ts             # Custom error classes
-│       ├── index.ts              # Core utilities
-│       ├── logger.ts             # Consola logging setup
-│       ├── lockfile.ts           # Lock file management
-│       ├── paths.ts              # XDG-compliant path resolution
-│       ├── port-assignment.ts    # Port assignment logic
-│       ├── try-catch.ts          # Error wrapper utilities
-│       ├── types.ts               # TypeScript type definitions
-│       ├── utils.ts              # Process and platform utilities
-│       └── validation.ts         # Input validation
-├── package.json
-├── tsconfig.json
-├── biome.json
-├── AGENTS.md                     # Agent development guidelines
-└── README.md
 ```
 
 ## Exit Codes

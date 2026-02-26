@@ -1,9 +1,12 @@
 name: Release
 
 on:
-  release:
+  pull_request:
     types:
-      - created
+      - closed
+    branches:
+      - stable
+      - develop
 
 env:
   BUN_CACHE_KEY: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
@@ -12,28 +15,20 @@ permissions:
   contents: write
   id-token: write
 
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: true
-
 jobs:
   release:
-    name: Build files and generate changelog
+    name: Release
     runs-on: ubuntu-latest
-    if: github.ref_name == 'release'
-    env:
-      TAG: ${{ github.event.release.target_commitish }}
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.title == 'Version Packages' &&
+      (github.event.pull_request.base.ref == 'stable' || github.event.pull_request.base.ref == 'develop')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
-
-      - name: Delete release
-        run: gh release delete release --yes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -56,35 +51,19 @@ jobs:
       - name: Build library
         run: bun run build
 
-      # TODO: Use co-pilot if easily available
-      # - name: Update README.md
-      #   run: opencode run "/update-readme-file"
-
-      - name: Update CHANGELOG.md
-        run: bun changeset version --snapshot ${{ env.TAG }}
-
-      - name: Publish snapshots to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm
         run: bun changeset publish
+        # env:
+        #   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish snapshots to JSR
-        env:
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
-        run: bunx jsr publish --tag ${{ env.TAG }}
+      - name: Publish to JSR
+        run: bunx jsr publish
 
-      - name: Create release
+      - name: Create GitHub Release
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          awk -v ver="$VERSION" '
-            $0 ~ "^## " ver "$" { found=1; next }
-            found && /^## [0-9]/ { exit }
-            found { print }
-          ' CHANGELOG.md > /tmp/release-notes.md
-          if [ -s /tmp/release-notes.md ]; then
-            gh release create "v$VERSION" --title "v$VERSION" --notes-file /tmp/release-notes.md
-          else
-            gh release create "v$VERSION" --title "v$VERSION" --generate-notes
-          fi
+          git tag "v$VERSION" || true
+          git push origin "v$VERSION" || true
+          gh release create "v$VERSION" --title "v$VERSION" --notes-file CHANGELOG.md || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

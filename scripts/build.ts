@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 
-import { readFileSync, writeFileSync } from "node:fs"
-import { $, build } from "bun"
+import { $, build, file } from "bun"
 
 import consola from "consola"
 
@@ -46,11 +45,10 @@ async function generateTypes() {
 	logger.success("Type declarations generated")
 }
 
-async function updatePackageJson() {
+async function updatePackageFiles() {
 	logger.info("Updating package.json...")
-	const pkgPath = "package.json"
-	const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"))
-
+	const pkgFile = file("./package.json")
+	const pkg = await pkgFile.json()
 	pkg.bin = {
 		kiset: "dist/cli.js"
 	}
@@ -58,9 +56,17 @@ async function updatePackageJson() {
 		import: "./dist/index.js",
 		types: "./dist/index.d.ts"
 	}
-
-	writeFileSync(pkgPath, `${JSON.stringify(pkg, null, "\t")}\n`)
+	pkgFile.write(`${JSON.stringify(pkg, null, "\t")}\n`)
 	logger.success("package.json updated")
+
+	logger.info("Updating jsr.json...")
+	const jsrFile = file("./jsr.json")
+	const jsr = await jsrFile.json()
+	jsr.exports = "./dist/index.js"
+	jsr.version = pkg.version
+	jsr.publish.include = pkg.files
+	jsrFile.write(`${JSON.stringify(jsr, null, "\t")}\n`)
+	logger.success("jsr.json updated")
 }
 
 async function main() {
@@ -69,7 +75,7 @@ async function main() {
 	await cleanDist()
 	await buildEntryPoints()
 	await generateTypes()
-	await updatePackageJson()
+	await updatePackageFiles()
 
 	logger.success("✓ Build complete!")
 }
