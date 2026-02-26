@@ -28,7 +28,7 @@ jobs:
           git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD > /tmp/changed-files.txt
 
           if grep -q "^src/" /tmp/changed-files.txt; then
-            if ! ls .changeset/*.md 1> /dev/null 2>&1; then
+            if ! ls .changeset/*.md 2>/dev/null | grep -v "README.md" 2>/dev/null | head -1 | grep -q .; then
               echo "Error: Changes to src/ detected, but no changeset found."
               echo ""
               echo "Please add a changeset to document your changes:"
@@ -38,11 +38,7 @@ jobs:
             fi
           fi
 
-  check-types:
-    name: ${{ matrix.task }}
-    runs-on: ubuntu-latest
-
-  check-linting:
+  checks:
     name: ${{ matrix.task }}
     runs-on: ubuntu-latest
     strategy:
