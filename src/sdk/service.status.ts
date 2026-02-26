@@ -3,7 +3,8 @@ import { file } from "bun"
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
-import { isRunningProcess, PATHS } from "#/utils"
+import { PATHS } from "#/constants"
+import { isRunningProcess } from "#/utils"
 
 interface ServiceStatus {
 	error?: string | undefined

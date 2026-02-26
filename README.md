@@ -1,16 +1,19 @@
-# kiset
+# Kiset
 
-CLI tool for managing local DNS and HTTP services with custom `.local` domains. kiset sets up dnsmasq for DNS resolution and Caddy for serving local content, perfect for development environments and local testing.
+CLI tool for managing local development environments with custom domains and HTTPS support. Kiset sets up Caddy as an HTTP server with automatic certificate generation, perfect for development and testing of web applications with secure connections.
 
 ## Features
 
-- **Custom `.local` Domains**: Map any `.local` domain to `127.0.0.1` for local development
-- **Automatic Dependency Installation**: Installs dnsmasq and Caddy based on your platform
-- **Service Management**: Start, stop, and check status of services with a single command
-- **Health Checks**: Verifies DNS and HTTP services are running correctly
-- **Cross-Platform**: Supports macOS (Darwin) and major Linux distributions (Arch, CentOS, Debian, Fedora, Manjaro, RHEL, Ubuntu)
-- **XDG-Compliant**: Uses standard directories for configuration and state management
+- **Custom Domains with HTTPS**: Map local services to custom domains with automatic SSL certificates
+- **Caddy Service Management**: Start, stop, and monitor Caddy HTTP server with ease
+- **Port Assignment System**: Dynamically assign and manage ports for multiple local services
+- **Certificate Trust Management**: Trust and revoke local development certificates
+- **Autostart Configuration**: Enable services to start automatically on boot (systemd)
+- **Project-Based Configuration**: Define ports and subdomains per project via `kiset.config.ts`
+- **JSON Output Mode**: Machine-readable JSON output for automation and scripting
 - **Lock File Protection**: Prevents concurrent operations for safe service management
+- **XDG-Compliant**: Follows XDG Base Directory specification for config and state
+- **Cross-Platform**: Supports macOS (Darwin) and major Linux distributions
 
 ## Installation
 
@@ -19,7 +22,7 @@ CLI tool for managing local DNS and HTTP services with custom `.local` domains. 
 - **Bun**: Runtime environment (>= 1.0.0)
 - **Node.js**: Peer dependency (>= 22.0.0) for type definitions
 - **System Requirements**:
-  - Root/sudo access for installing dnsmasq and Caddy
+  - Root/sudo access for installing Caddy and managing system services
   - Network access for fetching dependencies
 
 ### Install from NPM
@@ -31,7 +34,7 @@ bun install -g kiset
 ### Install from Source
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/AdityaBorkar/kiset.git
 cd kiset
 bun install
 bun link
@@ -50,111 +53,294 @@ bun link
 | RHEL | ✅ |
 | CentOS | ✅ |
 
-## Usage
+## Quick Start
 
-### Start Services
+### 1. Create Project Configuration
 
-Start dnsmasq (DNS) and Caddy (HTTP) in detached mode:
+Create a `kiset.config.ts` file in your project root:
+
+```typescript
+import { defineProjectConfig } from "kiset"
+
+export default defineProjectConfig({
+  environment: "development",
+  infisical: {
+    siteUrl: "https://app.infisical.com"
+  },
+  ports: {
+    VITE_SERVER_PORT: { subdomain: "myapp" },
+    API_PORT: { subdomain: "api.myapp" }
+  },
+  projectId: "my-project"
+})
+```
+
+### 2. Start the Service
 
 ```bash
-kiset start
+kiset service start
 ```
 
 Start in foreground mode (useful for debugging):
 
 ```bash
-kiset start --no-detached
+kiset service start --foreground
 ```
 
-**Default Ports:**
+**Default Configuration:**
 
-- DNS (dnsmasq): `127.0.0.1:5353`
-- HTTP (Caddy): `127.0.0.1:8443`
+- Admin Server: `localhost:2020`
+- HTTPS Server: `localhost:443`
+- Port Assignment Range: `4000-4999`
 
-### Stop Services
+### 3. Trust the Certificate
 
-Stop all running services:
+For HTTPS to work without warnings, trust the local Caddy certificate:
 
 ```bash
-kiset stop
+kiset trust
 ```
 
-### Check Status
+**Platform-Specific Instructions:**
 
-View service status and health:
+- **macOS**: Import certificate via Keychain Access
+- **Windows (WSL)**: `certutil -addstore -f ROOT "$env:USERPROFILE\.local\share\caddy\pki\authorities\local\root.crt"`
+- **Firefox**: Settings → Privacy & Security → Certificates → View Certificates → Authorities → Import `root.crt` → Check "Trust this CA to identify websites" → OK
+
+### 4. View Service Status
 
 ```bash
-kiset status
+kiset service status
 ```
 
 Output example:
 
 ```
-dnsmasq  ✓ running (PID: 12345, Port: 5353) - healthy
-caddy    ✓ running (PID: 12346, Port: 8443) - healthy
+caddy  ✓ running (PID: 12345, Port: 443) - healthy
 ```
 
-### How to trust Caddy
+### 5. View Logs
 
-- If running in WSL instance, import the certificate in Windows using the command `certutil -addstore -f ROOT "$env:USERPROFILE\OneDrive\Desktop\root.crt"`
-- For Firefox, follow the below steps:
-   1. Settings → Privacy & Security → Certificates → View Certificates → Authorities
-   2. Import `root.crt` → Check "Trust this CA to identify websites" → OK
-- You need to manually remove these steps when you want to untrust the certificate
+```bash
+kiset service logs caddy
 
-## Exit Codes
+# Stream logs in real-time
+kiset service logs caddy --follow
 
-The CLI uses the following exit codes:
+# Show last 100 lines
+kiset service logs caddy --limit 100
+```
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | Error |
-| 2 | Usage (invalid command or arguments) |
+## Commands
 
-When an error occurs, the CLI will exit with code `1` and print an error message to stderr.
+### Service Management
 
-## How It Works
+#### Start Services
 
-1. **DNS Resolution (dnsmasq)**:
-   - Runs on `127.0.0.1:5353`
-   - Resolves all `.local` domains to `127.0.0.1`
-   - Caches queries for performance
-   - Uses upstream DNS servers (1.1.1.1, 8.8.8.8)
+```bash
+kiset service start [--foreground]
+```
 
-2. **HTTP Server (Caddy)**:
-   - Runs on `127.0.0.1:8443`
-   - Responds with status message on default endpoint
-   - Can be configured for custom domain routing
+Start the Caddy HTTP server. Use `--foreground` to run in the foreground for debugging.
 
-3. **File Organization**:
-   - Config: `$XDG_CONFIG_HOME/kiset/` (default: `~/.config/kiset/`)
-   - State: `$XDG_STATE_HOME/kiset/` (default: `~/.local/state/kiset/`)
-   - Logs: `$XDG_STATE_HOME/kiset/logs/`
+#### Stop Services
+
+```bash
+kiset service stop
+```
+
+Stop all running Caddy services.
+
+#### Check Status
+
+```bash
+kiset service status
+```
+
+Display service status and health information.
+
+#### View Logs
+
+```bash
+kiset service logs [service] [--follow] [--limit <n>]
+```
+
+View service logs. Options:
+
+- `service`: Service name (e.g., `caddy`)
+- `--follow`: Stream logs in real-time
+- `--limit`: Number of log lines to show (default: 50)
+
+### Certificate Management
+
+#### Trust Certificate
+
+```bash
+kiset trust
+```
+
+Trust the local Caddy certificate for HTTPS.
+
+#### Revoke Trust
+
+```bash
+kiset revoke-trust
+```
+
+Remove trust for the local Caddy certificate.
+
+### Autostart Management
+
+#### Enable Autostart
+
+```bash
+kiset autostart
+```
+
+Enable Kiset to start automatically on system boot (requires systemd).
+
+#### Disable Autostart
+
+```bash
+kiset revoke-autostart
+```
+
+Disable automatic startup.
+
+### Port Management
+
+#### List Port Assignments
+
+```bash
+kiset list [program]
+```
+
+List all port assignments or assignments for a specific program.
+
+### Utility Commands
+
+#### Execute Command
+
+```bash
+kiset run <command> [args...]
+```
+
+Execute a command after validating configuration and checking service status.
+
+#### Force Unlock
+
+```bash
+kiset unlock
+```
+
+Forcefully release the service lock if a previous operation left it in a locked state.
 
 ## Configuration
 
-After starting kiset, configure your system DNS to use the local DNS server:
+### Global Configuration
 
-### macOS
+Global configuration is stored in `$XDG_CONFIG_HOME/kiset/kiset.config.json` (default: `~/.config/kiset/kiset.config.json`).
 
-```bash
-sudo networksetup -setdnsservers Wi-Fi 127.0.0.1 5353
+```json
+{
+  "port_assignment": {
+    "deny": [],
+    "range": {
+      "end": 4999,
+      "start": 4000
+    }
+  },
+  "server": {
+    "hostname": "localhost",
+    "https": true,
+    "port": 443
+  },
+  "server_admin": {
+    "hostname": "localhost",
+    "port": 2020
+  }
+}
 ```
 
-### Linux (NetworkManager)
+### Project Configuration
 
-```bash
-nmcli connection modify <connection-name> ipv4.dns "127.0.0.1 5353"
+Project-specific configuration is defined in `kiset.config.ts`:
+
+```typescript
+import { defineProjectConfig } from "kiset"
+
+export default defineProjectConfig({
+  environment: "development",
+  infisical: {
+    siteUrl: "https://app.infisical.com"
+  },
+  port_assignment: {
+    deny: [8080, 8081],
+    range: {
+      end: 4999,
+      start: 4000
+    }
+  },
+  ports: {
+    PORT_NAME_1: { subdomain: "subdomain1" },
+    PORT_NAME_2: { subdomain: "subdomain2" }
+  },
+  projectId: "your-project-id"
+})
 ```
 
-### Testing DNS Resolution
+### Environment Variables
 
-```bash
-dig @127.0.0.1 -p 5353 test.local +short
+Kiset respects XDG Base Directory specification:
+
+- `XDG_CONFIG_HOME`: Config directory (default: `~/.config`)
+- `XDG_STATE_HOME`: State directory (default: `~/.local/state`)
+
+## File Organization
+
+```
+~/.config/kiset/              # Config directory
+  ├── Caddyfile               # Caddy configuration
+  └── kiset.config.json       # Global configuration
+
+~/.local/state/kiset/         # State directory
+  ├── assignments.json        # Port assignments
+  ├── caddy.json              # Caddy service state
+  ├── kiset.lock              # Service lock file
+  └── logs/                   # Log files
+      ├── caddy.log
 ```
 
-Expected output: `127.0.0.1`
+## Programmatic Usage
+
+You can also use Kiset as a library:
+
+```typescript
+import {
+  autostart,
+  list,
+  revoke_autostart,
+  revoke_trust,
+  run,
+  start,
+  status,
+  stop,
+  trust,
+  defineProjectConfig
+} from "kiset"
+
+// Start services
+await start({ detached: true }, { verbose: true })
+
+// Check status
+const serviceStatus = await status(null, { verbose: true })
+
+// List port assignments
+const assignments = await list({ name: "my-service" }, { verbose: true })
+
+// Stop services
+await stop(null, { verbose: true })
+```
 
 ## Development
 
@@ -163,6 +349,9 @@ Expected output: `127.0.0.1`
 ```bash
 # Install dependencies
 bun install
+
+# Build the project
+bun run build
 
 # Run CLI in development mode
 bun run dev
@@ -173,83 +362,84 @@ bun run typecheck
 # Run linter
 bun run lint
 
-# Run tests
-bun test
+# Fix linting issues
+bun run lint:fix
 ```
 
-### Project Structure
+## Exit Codes
 
-```
-kiset/
-├── src/
-│   ├── cli.ts           # CLI entry point and command definitions
-│   ├── constants.ts     # Platform-specific constants and configs
-│   ├── utils.ts         # Utility functions and helpers
-│   ├── index.ts         # Main exports (for library usage)
-│   └── sdk/
-│       ├── start.ts     # Service start logic
-│       ├── stop.ts      # Service stop logic
-│       └── status.ts   # Service status checking
-├── package.json
-├── tsconfig.json
-└── AGENTS.md            # Agent development guidelines
-```
-
-## API
-
-### Programmatic Usage
-
-You can also use kiset as a library in your TypeScript/JavaScript projects:
-
-```typescript
-import { start, stop, status } from "kiset"
-
-// Start services
-await start(true, false)
-
-// Check status
-const serviceStatus = await status(true)
-
-// Stop services
-await stop(true)
-```
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Error |
+| 2 | Usage (invalid command or arguments) |
 
 ## Troubleshooting
 
 ### Services Won't Start
 
-1. Check if ports are already in use:
+1. **Check port availability**:
 
    ```bash
-   lsof -i :5353  # dnsmasq
-   lsof -i :8443  # caddy
+   lsof -i :443   # Caddy HTTPS
+   lsof -i :2020  # Caddy admin
    ```
 
-2. View logs:
+2. **View logs**:
 
    ```bash
-   tail -f ~/.local/state/kiset/logs/dnsmasq.log
-   tail -f ~/.local/state/kiset/logs/caddy.log
+   kiset service logs caddy --follow
    ```
 
-### DNS Not Resolving
+3. **Check if Caddy is installed**:
 
-1. Verify dnsmasq is running: `kiset status`
-2. Check DNS configuration: `dig @127.0.0.1 -p 5353 test.local`
-3. Ensure system DNS is pointing to `127.0.0.1:5353`
+   ```bash
+   which caddy
+   caddy version
+   ```
+
+4. **Force release lock** if operations are stuck:
+
+   ```bash
+   kiset unlock
+   ```
+
+### HTTPS Certificate Issues
+
+1. **Trust the certificate**:
+
+   ```bash
+   kiset trust
+   ```
+
+2. **Verify certificate is trusted** in your browser or system certificate store
+
+3. **Revoke and re-trust** if needed:
+
+   ```bash
+   kiset revoke-trust
+   kiset trust
+   ```
 
 ### Permission Errors
 
-Ensure you have sudo/root access for installing system dependencies (dnsmasq and Caddy).
+- Ensure you have sudo/root access for installing system dependencies (Caddy)
+- Check file permissions in `~/.config/kiset/` and `~/.local/state/kiset/`
+
+### Port Conflicts
+
+- Check `kiset.config.ts` for port assignment ranges
+- Modify global config if the default range (4000-4999) conflicts with your services
+- View all assignments: `kiset list`
 
 ## License
 
-[Your License Here]
+MIT License - Copyright (c) 2026 Aditya Borkar
 
 ## Contributing
 
-Contributions are welcome! Please read [AGENTS.md](./AGENTS.md) for development guidelines before submitting pull requests.
+Contributions are welcome! Please read [AGENTS.md](./AGENTS.md) and [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines before submitting pull requests.
 
 ## Support
 
-For issues, questions, or feature requests, please open an issue on the [GitHub repository](<repository-url>).
+For issues, questions, or feature requests, please open an issue on the [GitHub repository](https://github.com/AdityaBorkar/kiset/issues).

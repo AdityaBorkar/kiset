@@ -3,7 +3,7 @@ import { $, file, spawn, write } from "bun"
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
-import { CADDY_INSTALL_COMMANDS } from "#/constants"
+import { CADDY_INSTALL_COMMANDS, LOCKFILE, PATHS } from "#/constants"
 import { status } from "#/sdk/service.status"
 import {
 	getGlobalConfig,
@@ -11,9 +11,7 @@ import {
 	isInstalled,
 	isPortAvailable,
 	killProcess,
-	LOCKFILE,
 	logProcessExit,
-	PATHS,
 	tryCatch,
 	waitForProcess
 } from "#/utils"

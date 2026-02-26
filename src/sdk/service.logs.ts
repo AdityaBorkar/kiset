@@ -1,7 +1,8 @@
 import { file } from "bun"
 
+import { PATHS } from "#/constants"
 import { status } from "#/sdk/service.status"
-import { logger, PATHS } from "#/utils"
+import { logger } from "#/utils"
 
 export interface LogsOptions {
 	follow?: boolean
