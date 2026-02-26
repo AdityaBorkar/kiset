@@ -20,8 +20,7 @@ Diff:
 ${diff}`
 
 	try {
-		const output =
-			"TYPE: minor\nSUMMARY: Add cf-tunnel service module with path and service management\n" // await $`opencode run ${prompt}`.text()
+		const output = await $`opencode run ${prompt}`.text()
 		const lines = output.trim().split("\n")
 		const typeLine = lines.find((l) => l.startsWith("TYPE:"))
 		const summaryLine = lines.find((l) => l.startsWith("SUMMARY:"))
