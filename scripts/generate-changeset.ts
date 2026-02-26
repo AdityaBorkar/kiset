@@ -54,10 +54,12 @@ async function main(): Promise<void> {
 		process.exit(0)
 	}
 	const { type, summary } = await analyzeChangesWithOpencode(diff)
+	console.log(`Determined changeset type: ${type}, summary: ${summary}`)
 	const entry = `---\n"kiset": ${type}\n---\n\n${summary}\n`
 
 	const emptyChangesetResult = await $`bun changeset --empty`.text()
 	const fileName = emptyChangesetResult.split("\n")[2]?.trim().slice(9)
+	console.log(`Generated empty changeset file: ${fileName}`)
 	await file(fileName).write(entry)
 
 	await $`git add ${fileName}`.quiet()
