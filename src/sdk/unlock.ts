@@ -1,7 +1,7 @@
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
-import { LOCKFILE } from "#/utils"
+import { LOCKFILE } from "#/constants"
 
 export async function unlock(
 	_: null,

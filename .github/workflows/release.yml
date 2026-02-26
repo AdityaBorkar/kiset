@@ -1,29 +1,69 @@
 name: Release
 
 on:
-  push:
+  pull_request:
+    types:
+      - closed
     branches:
-      - canary
       - stable
+      - develop
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+env:
+  BUN_CACHE_KEY: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
 
-jobs:   
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.title == 'Version Packages' &&
+      (github.event.pull_request.base.ref == 'stable' || github.event.pull_request.base.ref == 'develop')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Release to NPM
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.bun/install/cache
+          key: ${{ env.BUN_CACHE_KEY }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build library
+        run: bun run build
+
+      - name: Publish to npm
+        run: bun changeset publish
+        # env:
+        #   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to JSR
+        run: bunx jsr publish
+
+      - name: Create GitHub Release
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          git tag "v$VERSION" || true
+          git push origin "v$VERSION" || true
+          gh release create "v$VERSION" --title "v$VERSION" --notes-file CHANGELOG.md || true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: bunx semantic-release
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

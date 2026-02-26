@@ -1,9 +1,3 @@
-import { LockFile } from "#/utils/lockfile.ts"
-import { getPaths } from "#/utils/paths.ts"
-
-export const PATHS = getPaths()
-export const LOCKFILE = new LockFile(PATHS.LOCKFILE)
-
 export {
 	GlobalConfigSchema,
 	type GlobalConfigSchemaType,

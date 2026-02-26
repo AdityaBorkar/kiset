@@ -7,6 +7,7 @@
 	"bin": {
 		"kiset": "dist/cli.js"
 	},
+	"bugs": "https://github.com/AdityaBorkar/kiset/issues",
 	"dependencies": {
 		"arktype": "^2.1.29",
 		"commander": "^14.0.3",
@@ -15,19 +16,17 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
-		"@opencode-ai/sdk": "^1.2.10",
-		"@sebbo2002/semantic-release-jsr": "^3.2.0",
-		"@semantic-release/changelog": "^6.0.3",
-		"@semantic-release/commit-analyzer": "^13.0.1",
-		"@semantic-release/git": "^10.0.1",
-		"@semantic-release/github": "^12.0.6",
-		"@semantic-release/npm": "^13.1.4",
-		"@semantic-release/release-notes-generator": "^14.1.0",
+		"@changesets/changelog-github": "^0.5.2",
+		"@changesets/cli": "^2.29.8",
+		"@octokit/request-error": "^7.1.0",
+		"@octokit/rest": "^22.0.1",
+		"@opencode-ai/sdk": "^1.2.15",
 		"@types/bun": "^1.3.9",
 		"husky": "^9.1.7",
 		"markdownlint-cli2": "^0.21.0",
-		"semantic-release": "^25.0.3"
+		"typescript": "^5.9.3"
 	},
+	"displayName": "Kiset",
 	"engines": {
 		"bun": ">=1.0.0",
 		"node": ">=22.0.0"
@@ -45,26 +44,30 @@
 		"CHANGELOG.md",
 		"package.json"
 	],
+	"homepage": "https://github.com/AdityaBorkar/kiset",
 	"imports": {
 		"#/*": "./src/*"
 	},
+	"keywords": ["local dev", "port proxy", "caddy", "infisical", "tunnel"],
 	"module": "dist/index.ts",
 	"name": "kiset",
-	"peerDependencies": {
-		"typescript": "^5.9.3"
-	},
 	"publishConfig": {
 		"access": "public",
 		"provenance": true
 	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/AdityaBorkar/kiset.git"
+	},
 	"scripts": {
 		"build": "bun scripts/build.ts",
 		"dev": "bun src/cli.ts",
-		"lint": "biome check --fix",
+		"lint": "biome check",
+		"lint:fix": "biome check --fix",
 		"prepare": "husky",
 		"typecheck": "tsc --noEmit"
 	},
 	"sideEffects": false,
 	"type": "module",
-	"version": "0.0.0-development"
+	"version": "0.1.2"
 }

@@ -2,6 +2,7 @@
 
 import { Command } from "commander"
 
+import { LOCKFILE } from "#/constants"
 import {
 	autostart,
 	list,
@@ -14,7 +15,23 @@ import {
 	trust
 } from "#/index"
 import { logs } from "#/sdk/service.logs"
-import { cleanup, EXIT_CODES, LOCKFILE, logger } from "#/utils"
+import { cleanup, EXIT_CODES, logger } from "#/utils"
+
+// Block npx / pnpm dlx -- portless should be installed globally, not run
+// via npx. Running "sudo npx" is unsafe because it performs package
+// resolution and downloads as root.
+const isNpx =
+	process.env["npm_command"] === "exec" && !process.env["npm_lifecycle_event"]
+const isPnpmDlx =
+	!!process.env["PNPM_SCRIPT_SRC_DIR"] && !process.env["npm_lifecycle_event"]
+if (isNpx || isPnpmDlx) {
+	logger.error("Error: kiset should not be run via npx or pnpm dlx.")
+	logger.info("Install globally instead:")
+	logger.info("  npm install -g kiset")
+	process.exit(1)
+}
+
+// ------------------------------------------------------------------------------
 
 let isShuttingDown = false
 async function handleGracefulShutdown(signal: NodeJS.Signals) {
@@ -43,6 +60,8 @@ process.on("SIGTERM", () => handleGracefulShutdown("SIGTERM"))
 process.on("SIGINT", () => handleGracefulShutdown("SIGINT"))
 process.on("uncaughtException", handleCrash)
 process.on("unhandledRejection", handleCrash)
+
+// ------------------------------------------------------------------------------
 
 export type Arguments = {
 	verbose: boolean

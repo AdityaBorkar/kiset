@@ -1,5 +1,10 @@
-import type { GlobalConfigSchemaType } from "#/utils"
+import { type GlobalConfigSchemaType, LockFile } from "#/utils"
+import { getPaths } from "#/utils/paths"
 import type { Platform } from "./utils"
+
+export const PATHS = getPaths()
+
+export const LOCKFILE = new LockFile(PATHS.LOCKFILE)
 
 export const CADDY_INSTALL_COMMANDS = {
 	arch: "sudo pacman -S --noconfirm caddy",

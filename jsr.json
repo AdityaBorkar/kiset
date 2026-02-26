@@ -1,11 +1,11 @@
 {
 	"$schema": "https://jsr.io/schema/config-file.v1.json",
-	"exports": "./src/index.ts",
+	"exports": "./dist/index.js",
 	"license": "MIT",
-	"name": "kiset",
+	"name": "@adityab/kiset",
 	"publish": {
 		"include": [
-			"src/**/*",
+			"dist/**/*",
 			"README.md",
 			"LICENSE.md",
 			"CHANGELOG.md",

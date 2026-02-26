@@ -1,6 +1,7 @@
 import { file } from "bun"
 
-import { logger, PATHS } from "#/utils"
+import { PATHS } from "#/constants"
+import { logger } from "#/utils"
 
 type CaddyRoute = {
 	match: Array<{ host?: string[] }>

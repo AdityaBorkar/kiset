@@ -1,7 +1,7 @@
 import { createServer } from "node:http"
 import { $, sleep } from "bun"
 
-import { PATHS } from "#/utils"
+import { PATHS } from "#/constants"
 
 export const SUPPORTED_PLATFORMS = [
 	"darwin",

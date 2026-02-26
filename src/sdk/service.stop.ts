@@ -3,8 +3,8 @@ import { file } from "bun"
 import ora from "ora"
 
 import type { Arguments } from "#/cli"
+import { LOCKFILE, PATHS } from "#/constants"
 import { caddy } from "#/services/caddy"
-import { LOCKFILE, PATHS } from "#/utils"
 
 export async function stop(_: null, { verbose }: Arguments) {
 	// Initialization
