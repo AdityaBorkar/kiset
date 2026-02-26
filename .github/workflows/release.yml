@@ -25,7 +25,7 @@ jobs:
       (github.event.pull_request.base.ref == 'stable' || github.event.pull_request.base.ref == 'develop')
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
