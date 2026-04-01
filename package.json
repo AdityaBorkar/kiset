@@ -23,7 +23,7 @@
 		"@opencode-ai/sdk": "^1.2.15",
 		"@types/bun": "^1.3.9",
 		"husky": "^9.1.7",
-		"markdownlint-cli2": "^0.21.0",
+		"markdownlint-cli2": "^0.22.0",
 		"typescript": "^5.9.3"
 	},
 	"displayName": "Kiset",
