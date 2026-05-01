@@ -5,22 +5,22 @@
     "": {
       "name": "localport",
       "dependencies": {
-        "arktype": "latest",
-        "commander": "latest",
-        "consola": "latest",
-        "ora": "latest",
+        "arktype": "^2.1.29",
+        "commander": "^14.0.3",
+        "consola": "^3.4.2",
+        "ora": "^9.3.0",
       },
       "devDependencies": {
-        "@biomejs/biome": "latest",
-        "@changesets/changelog-github": "latest",
-        "@changesets/cli": "latest",
-        "@octokit/request-error": "latest",
-        "@octokit/rest": "latest",
-        "@opencode-ai/sdk": "latest",
-        "@types/bun": "latest",
-        "husky": "latest",
-        "markdownlint-cli2": "latest",
-        "typescript": "latest",
+        "@biomejs/biome": "^2.4.4",
+        "@changesets/changelog-github": "^0.5.2",
+        "@changesets/cli": "^2.29.8",
+        "@octokit/request-error": "^7.1.0",
+        "@octokit/rest": "^22.0.1",
+        "@opencode-ai/sdk": "^1.2.15",
+        "@types/bun": "^1.3.9",
+        "husky": "^9.1.7",
+        "markdownlint-cli2": "^0.21.0",
+        "typescript": "^6.0.3",
       },
     },
   },
@@ -429,7 +429,7 @@
 
     "tr46": ["tr46@0.0.3", "", {}, "sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw=="],
 
-    "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+    "typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
 
     "uc.micro": ["uc.micro@2.1.0", "", {}, "sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A=="],
 
