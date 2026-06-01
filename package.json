@@ -16,7 +16,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
-		"@changesets/changelog-github": "^0.5.2",
+		"@changesets/changelog-github": "^0.7.0",
 		"@changesets/cli": "^2.29.8",
 		"@octokit/request-error": "^7.1.0",
 		"@octokit/rest": "^22.0.1",
